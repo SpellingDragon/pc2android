@@ -32,9 +32,42 @@ python3 pc2android.py /path/to/game
 <应用名>-preflight/map.png
 ```
 
-## 作为 Qoder Skill 挂载
+## 流程
 
-仓库自带 `skills/pc2android/`，可直接挂载为 Qoder skill：
+```mermaid
+flowchart TD
+    A(["项目路径"]) --> B["Python 依赖自检/自装"]
+    B --> C["工具链自检/自装<br/>JDK 17 · Android 36 · build-tools 36.0.0<br/>Gradle 8.14.5 · Chrome for Testing"]
+    C --> C1{"安装/校验通过?"}
+    C1 -->|"是"| D{"引擎识别"}
+    C1 -->|"重试后仍失败"| Z(["exit 非零<br/>保留旧包与 report"])
+    D -->|"RPG Maker MZ/MV · NW.js"| E["暂存网页资源"]
+    D -->|"Electron asar"| F["解包 base.asar / app.asar"]
+    D -->|"Windows 原生"| X["非零退出<br/>建议 Winlator"]
+    E --> G["兼容修复"]
+    F --> G
+    G --> G1["Node shim + asset-index"]
+    G --> G2["加密长图分片"]
+    G --> G3["自适应图标"]
+    G1 --> H["构建 APK"]
+    G2 --> H
+    G3 --> H
+    H --> I["apksigner · zipalign · ZIP CRC"]
+    I --> J["从 APK 直接起服务<br/>Chromium 本地预检"]
+    J --> K{"全部通过?"}
+    K -->|"是"| L(["exit 0<br/>APK + report + remediation"])
+    K -->|"否"| M{"404 且源目录可找到?"}
+    M -->|"是"| O["补进包"]
+    M -->|"否"| Z
+    O --> P["重建 APK"]
+    P --> I
+```
+
+工具链缺失会在构建前自动安装并校验（下载失败重试 3 次）；预检失败只有在源目录能找到文件时才自动修复，其他情况非零退出。所有自动动作记录在 `report.json` 的 `remediation` 字段。
+
+## 作为 Agent Skill 挂载
+
+`skills/pc2android/` 遵循 Agent Skills 的 `SKILL.md` 约定，可挂载到任何兼容的 Agent。以 Qoder 为例：
 
 ```bash
 git clone https://github.com/SpellingDragon/pc2android.git
@@ -49,19 +82,39 @@ cp -R skills/pc2android ~/.qoder/skills/
 /pc2android /path/to/game
 ```
 
-项目级挂载：把 `skills/pc2android` 复制到项目的 `.qoder/skills/` 目录。
+以 Claude Code 为例：
 
-## 成功契约
+```bash
+mkdir -p ~/.claude/skills
+cp -R skills/pc2android ~/.claude/skills/
+```
 
-退出码 0 表示以下全部成立，不存在“带条件的成功”：
+在 Claude Code 中可用 `/pc2android /path/to/game` 或自然语言触发。
 
-1. APK 构建、签名、对齐、ZIP CRC 全部通过。
-2. 预检到达标题/地图；图片全部就绪；无图片错误、WebGL 错误、JS 异常；字体就绪。
-3. 所有“已打包资源”的请求都被正确服务；出现“已打包却 404”即失败。
-4. 存档写入 → 读回 → 删除往返成功。
-5. Electron 模式启动完成、舞台缩放正确、localStorage 往返成功。
+项目级挂载：把 `skills/pc2android` 复制到项目对应的 skills 目录（例如 `.qoder/skills/`、`.claude/skills/`）。其他 Agent 按其 skill 目录约定挂载同一目录即可。
 
-唯一不判失败的情况：请求的文件在**源游戏目录中本来就不存在**（游戏自身的可选探测，例如材质贴图、语言文件探测）。这类 404 会记录在报告中，但不阻止成功；如果该文件其实存在于源目录的其他位置，工具会自动补进包并重建。
+## 成功契约：先穷尽自动修复，再判失败
+
+退出码 0 只代表“全部通过”，但工具不会把能自动解决的问题丢给用户。判失败之前，它会按下面的顺序把能补的条件全部补齐：
+
+1. **缺工具链**：自动下载安装 JDK 17、Android platform 36、build-tools 36.0.0、Gradle 8.14.5、Chrome for Testing；下载失败重试 3 次，支持带凭据代理；安装后逐项校验版本。
+2. **缺 Python 依赖**：自动创建 `~/.pc2android/venv` 并重入执行。
+3. **预检 404**：在源目录按同路径、加密变体、同名文件、备用根目录（含 Electron asar 解包树）搜索；找到就补进包。
+4. **修复后**：自动重建 APK、重新签名/对齐/CRC、重新预检，最多两轮。
+5. **网络/服务瞬断**：重试；已安装组件复用，不重复下载。
+6. **仍失败**：非零退出，保留 `report.json`、日志与旧 APK；不输出半成品，不把“带条件的成功”当成功。
+
+工具会把上述动作写入 `report.json` 的 `remediation` 字段，并在终端打印 `Remediation (N)` 清单，让“已经尽力”可审计。
+
+最终门槛（全部满足才 exit 0）：
+
+- APK 构建、`apksigner`、`zipalign`、全包 CRC 通过
+- 预检到达标题/地图；图片就绪；无图片错误、WebGL 错误、JS 异常；字体就绪
+- 所有已打包资源请求都被服务；已打包却 404 即失败
+- 存档写入 → 读回 → 删除往返成功
+- Electron 模式启动完成、舞台缩放正确、localStorage 往返成功
+
+唯一不判失败：请求的文件在源游戏目录中本来就不存在（游戏自身的可选探测）。这不是放过打包缺陷——它本来就不在包里；若它其实在源目录其他位置，工具会自动补进包并重建。
 
 ## 自动安装
 

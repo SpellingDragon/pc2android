@@ -16,7 +16,7 @@ jobs:
       - run: python -m py_compile pc2android.py skills/pc2android/scripts/pc2android.py
       - run: cmp pc2android.py skills/pc2android/scripts/pc2android.py
       - run: python pc2android.py --help
-      - name: Validate skill metadata
+      - name: Validate Agent Skills metadata
         run: |
           python - <<'PY'
           import re
@@ -26,11 +26,18 @@ jobs:
           assert text.startswith('---\n'), 'missing frontmatter'
           end = text.index('\n---\n', 3)
           frontmatter = text[4:end]
+          keys = [line.split(':', 1)[0] for line in frontmatter.splitlines() if line and not line.startswith(' ')]
+          allowed = {'name', 'description', 'license', 'metadata', 'compatibility', 'allowed-tools'}
+          assert set(keys) <= allowed, f'unexpected frontmatter keys: {keys}'
           name = re.search(r'^name: (.+)$', frontmatter, re.M).group(1).strip()
           description = re.search(r'^description: (.+)$', frontmatter, re.M).group(1).strip()
           assert re.fullmatch(r'[a-z0-9-]+', name), name
+          assert len(name) <= 64, len(name)
           assert len(description) <= 1024, len(description)
+          assert '\n' not in description, 'description must be single-line'
+          assert re.search(r'^license: MIT$', frontmatter, re.M), 'license must be MIT'
           assert len(text.splitlines()) < 500, len(text.splitlines())
           assert 'TODO:' not in text, 'unresolved TODO'
-          print('skill ok:', name, len(description))
+          assert 'qoder' not in text.lower(), 'skill must stay agent-agnostic'
+          print('skill ok:', name, len(description), 'chars')
           PY

@@ -36,6 +36,12 @@ from pathlib import Path
 WEB_DIRS = ['audio', 'data', 'effects', 'fonts', 'icon', 'img', 'locales', 'models', 'css', 'credits.html']
 BACKUP_PATTERNS = ('*.bak*', '*.before-*', '.mz-timeline-backups', '_backup_*')
 TOOLCHAIN_HOME = Path(os.environ.get('PC2ANDROID_HOME') or (Path.home() / '.pc2android')).expanduser()
+REMEDIATION = []
+
+
+def record_remediation(message):
+    REMEDIATION.append(message)
+    print(f'[remediation] {message}', flush=True)
 
 COMPAT_JS = r'''(function () {
     'use strict';
@@ -1386,6 +1392,7 @@ def repair_assets(assets, source, http_errors):
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(candidate, target)
         repairs.append((rel, str(candidate)))
+        record_remediation(f'repaired missing asset: {rel} <- {candidate}')
     if repairs and (assets / 'asset-index.json').is_file():
         write_asset_manifest(assets)
     return repairs
@@ -1474,7 +1481,8 @@ def preflight_apk(args, apk, assets, report_dir, engine):
                 'save': save,
                 'exceptions': session.exceptions,
                 'httpErrors': session.http_errors,
-                'failures': failures
+                'failures': failures,
+                'remediation': list(REMEDIATION)
             }
             report_path = report_dir / 'report.json'
             report_path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding='utf-8')
@@ -1493,7 +1501,8 @@ def preflight_apk(args, apk, assets, report_dir, engine):
                 'save': locals().get('save'),
                 'exceptions': session.exceptions if session else [],
                 'httpErrors': session.http_errors if session else [],
-                'failures': [str(error)]
+                'failures': [str(error)],
+                'remediation': list(REMEDIATION)
             }
             report_path = report_dir / 'report.json'
             report_path.write_text(json.dumps(failure_report, ensure_ascii=False, indent=2), encoding='utf-8')
@@ -1685,6 +1694,7 @@ def run_pipeline(args):
             if not repairs or attempt == 2:
                 raise RuntimeError(f'Local preflight failed: {report.get("failures")}')
             print(f'Repaired {len(repairs)} missing asset(s) from source; rebuilding')
+            record_remediation(f'rebuilt after asset repair (pass {attempt + 1})')
             apk = build(args, workdir, engine)
             verify(args, apk)
     final = args.out / f'{args.name}-WebView.apk'
@@ -1695,6 +1705,10 @@ def run_pipeline(args):
     os.replace(temporary, final)
     print(f'APK={final}')
     print(f'SHA256={sha256(final)}')
+    if REMEDIATION:
+        print(f'Remediation ({len(REMEDIATION)}):')
+        for item in REMEDIATION:
+            print(f'  - {item}')
     if not args.keep_work:
         shutil.rmtree(workdir)
 
@@ -1746,6 +1760,7 @@ def download_file(url, destination):
         if attempt == 2:
             raise RuntimeError(f'Download failed: {url}: {result.stdout[-1000:]}')
         print(f'  retry {attempt + 1}/2', flush=True)
+        record_remediation(f'retrying download ({attempt + 1}/2): {url}')
         time.sleep(2)
 
 
@@ -1789,6 +1804,7 @@ def install_jdk(home):
     for candidate in [target / 'Contents/Home', *target.glob('*/Contents/Home'), *target.glob('jdk-17*')]:
         if (candidate / 'bin/java').is_file() and java_major(candidate) >= 17:
             print(f'Installed JDK 17 at {candidate}', flush=True)
+            record_remediation(f'installed JDK 17 at {candidate}')
             return candidate
     raise RuntimeError('JDK install did not produce a working java binary')
 
@@ -1855,6 +1871,7 @@ def install_android_sdk(home):
     if not (sdk / 'build-tools/36.0.0/aapt2').is_file() or not (sdk / 'platforms/android-36/android.jar').is_file():
         raise RuntimeError('Android SDK install did not produce the required components')
     print(f'Installed Android SDK at {sdk}', flush=True)
+    record_remediation(f'installed Android platform 36 and build-tools 36.0.0 at {sdk}')
     return sdk
 
 
@@ -1870,6 +1887,7 @@ def install_gradle(home):
         raise RuntimeError('Gradle install did not produce Gradle 8.14.5')
     binary.chmod(0o755)
     print(f'Installed Gradle 8.14.5 at {target}', flush=True)
+    record_remediation(f'installed Gradle 8.14.5 at {target}')
     return binary
 
 
@@ -1897,6 +1915,7 @@ def install_chrome(home):
         raise RuntimeError('Chrome for Testing install did not produce the browser binary')
     binary.chmod(0o755)
     print(f'Installed Chrome for Testing at {binary}', flush=True)
+    record_remediation(f'installed Chrome for Testing at {binary}')
     return binary
 
 
@@ -1937,6 +1956,7 @@ def ensure_python_deps():
         venv.EnvBuilder(with_pip=True).create(str(venv_dir))
     subprocess.run([str(python), '-m', 'pip', 'install', '--upgrade', 'pip'], check=True, stdout=subprocess.DEVNULL)
     subprocess.run([str(python), '-m', 'pip', 'install', 'Pillow>=10,<13', 'websocket-client>=1.8,<2'], check=True)
+    record_remediation(f'installed Python dependencies into {venv_dir}')
     os.execv(str(python), [str(python), str(Path(__file__).resolve())] + sys.argv[1:])
 
 

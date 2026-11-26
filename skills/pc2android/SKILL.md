@@ -1,7 +1,10 @@
 ---
 name: pc2android
 description: 将 PC 上的 HTML5 / RPG Maker MV/MZ（NW.js）/ Electron 游戏一键打包为单个 Android APK。Use when the user wants to convert a PC game to Android, build an APK, port RPG Maker MV/MZ, NW.js or Electron projects, run pc2android, or needs automatic JDK/Android SDK/Gradle/Chrome installation with strict build verification and local preflight. 触发词：安卓打包、APK、单包安装、RPG Maker、NW.js、Electron、一键移植、本地预检。
-argument-hint: <project-path>
+license: MIT
+metadata:
+  author: SpellingDragon
+  version: "1.2.0"
 ---
 
 # pc2android
@@ -10,24 +13,22 @@ argument-hint: <project-path>
 
 一条命令把项目打包成单个 Android APK。脚本自动安装并校验缺失的 JDK 17、Android SDK 组件、Gradle 8.14.5、Chrome for Testing 与 Python 依赖；自动生成图标；构建后执行签名/对齐/CRC 校验与本地预检；预检发现可补齐的缺失资源会自动找回并重建。**只有退出码 0 才算成功。**
 
+本 skill 遵循 Agent Skills 的 `SKILL.md` 约定，可被任何兼容该约定的 Agent 挂载。
+
 ## 使用
 
 1. 确认项目路径存在（游戏根目录、`data_Win` 或 `www` 均可；Electron 为含 `resources/*.asar` 的目录）。
-2. 在希望输出 APK 的目录运行（默认输出到当前工作目录）：
+2. 运行本 skill 目录下的脚本。本目录即本 `SKILL.md` 所在目录，脚本路径为 `scripts/pc2android.py`：
+
+```bash
+cd <skill-dir>
+python3 scripts/pc2android.py <project-path>
+```
+
+也可以直接用绝对路径：
 
 ```bash
 python3 <skill-dir>/scripts/pc2android.py <project-path>
-```
-
-`<skill-dir>` 是本 skill 的安装目录：
-
-- 用户级挂载：`~/.qoder/skills/pc2android`
-- 项目级挂载：`.qoder/skills/pc2android`
-
-例如用户级：
-
-```bash
-python3 ~/.qoder/skills/pc2android/scripts/pc2android.py /path/to/game
 ```
 
 3. 检查退出码与输出：
@@ -35,9 +36,20 @@ python3 ~/.qoder/skills/pc2android/scripts/pc2android.py /path/to/game
    - 失败：非零退出，读取 `<name>-preflight/report.json` 的 `failures` 与 `httpErrors`
 4. 失败时按“故障处理”修复后重跑；不要跳过校验、不要手工改写报告、不要用旧包冒充成功。
 
-## 成功契约
+## 成功契约：先穷尽自动修复，再判失败
 
-退出码 0 表示以下全部成立，不存在“带条件的成功”：
+退出码 0 只代表“全部通过”，但工具不会把能自动解决的问题丢给用户。判失败之前，它会按下面的顺序把能补的条件全部补齐：
+
+1. **缺工具链**：自动下载安装 JDK 17、Android platform 36、build-tools 36.0.0、Gradle 8.14.5、Chrome for Testing；下载失败重试 3 次，支持带凭据代理；安装后逐项校验版本。
+2. **缺 Python 依赖**：自动创建 `~/.pc2android/venv` 并重入执行。
+3. **预检 404**：在源目录按同路径、加密变体、同名文件、备用根目录（含 Electron asar 解包树）搜索；找到就补进包。
+4. **修复后**：自动重建 APK、重新签名/对齐/CRC、重新预检，最多两轮。
+5. **网络/服务瞬断**：重试；已安装组件复用，不重复下载。
+6. **仍失败**：非零退出，保留 `report.json`、日志与旧 APK；不输出半成品，不把“带条件的成功”当成功。
+
+工具会把上述动作写入 `report.json` 的 `remediation` 字段，并在终端打印 `Remediation (N)` 清单，让“已经尽力”可审计。
+
+最终门槛（全部满足才 exit 0）：
 
 - APK 构建、`apksigner`、`zipalign`、全包 CRC 通过
 - 预检到达标题/地图；图片就绪；无图片错误、WebGL 错误、JS 异常；字体就绪
@@ -45,7 +57,7 @@ python3 ~/.qoder/skills/pc2android/scripts/pc2android.py /path/to/game
 - 存档写入 → 读回 → 删除往返成功
 - Electron 模式启动完成、舞台缩放正确、localStorage 往返成功
 
-唯一容忍：请求的文件在源游戏目录中本来就不存在（游戏自身的可选探测）。这类 404 记录在报告中，不阻止成功；若文件其实在源目录其他位置，脚本会自动补进包并重建。
+唯一不判失败：请求的文件在源游戏目录中本来就不存在（游戏自身的可选探测）。这不是放过打包缺陷——它本来就不在包里；若它其实在源目录其他位置，工具会自动补进包并重建。
 
 ## 自动安装
 

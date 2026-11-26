@@ -32,9 +32,42 @@ Output is written to the current directory:
 <app-name>-preflight/map.png
 ```
 
-## Use as a Qoder Skill
+## Pipeline
 
-The repository ships `skills/pc2android/` as a ready-to-mount Qoder skill:
+```mermaid
+flowchart TD
+    A(["Project path"]) --> B["Check/install Python deps"]
+    B --> C["Check/install toolchain<br/>JDK 17 · Android 36 · build-tools 36.0.0<br/>Gradle 8.14.5 · Chrome for Testing"]
+    C --> C1{"Install/verify passed?"}
+    C1 -->|"yes"| D{"Detect engine"}
+    C1 -->|"still failing after retries"| Z(["exit non-zero<br/>keep old APK + report"])
+    D -->|"RPG Maker MZ/MV · NW.js"| E["Stage web assets"]
+    D -->|"Electron asar"| F["Extract base.asar / app.asar"]
+    D -->|"Windows-native"| X["exit non-zero<br/>suggest Winlator"]
+    E --> G["Compatibility fixes"]
+    F --> G
+    G --> G1["Node shim + asset-index"]
+    G --> G2["Split tall encrypted images"]
+    G --> G3["Adaptive icons"]
+    G1 --> H["Build APK"]
+    G2 --> H
+    G3 --> H
+    H --> I["apksigner · zipalign · ZIP CRC"]
+    I --> J["Serve from APK<br/>Chromium local preflight"]
+    J --> K{"All passed?"}
+    K -->|"yes"| L(["exit 0<br/>APK + report + remediation"])
+    K -->|"no"| M{"404 and file exists in source?"}
+    M -->|"yes"| O["Copy into package"]
+    M -->|"no"| Z
+    O --> P["Rebuild APK"]
+    P --> I
+```
+
+A missing toolchain is installed and verified before the build (downloads retry three times). A failed preflight is auto-repaired only when the missing file exists in the source tree; otherwise the tool exits non-zero. Every automatic action is recorded in the `remediation` field of `report.json`.
+
+## Use as an Agent Skill
+
+`skills/pc2android/` follows the Agent Skills `SKILL.md` convention and can be mounted by any compatible agent. Qoder example:
 
 ```bash
 git clone https://github.com/SpellingDragon/pc2android.git
@@ -49,19 +82,39 @@ Run `/skills reload` in Qoder, then:
 /pc2android /path/to/game
 ```
 
-For a project-level mount, copy `skills/pc2android` into `<project>/.qoder/skills/`.
+Claude Code example:
 
-## Success contract
+```bash
+mkdir -p ~/.claude/skills
+cp -R skills/pc2android ~/.claude/skills/
+```
 
-Exit code 0 means all of the following hold. There is no partial or conditional success:
+In Claude Code, invoke `/pc2android /path/to/game` or trigger it with natural language.
 
-1. Build, signing, alignment and ZIP CRC verification pass.
-2. The preflight reaches the title/map; all images are ready; there are no image, WebGL or JavaScript errors; fonts are ready.
-3. Every request for a packaged asset is served; a packaged asset that returns 404 is a failure.
-4. Save → load → remove round-trip succeeds.
-5. Electron mode finishes startup, has the correct stage scale and passes a localStorage round-trip.
+Project-level: copy `skills/pc2android` into the project's skills directory (for example `.qoder/skills/`, `.claude/skills/`). For other agents, copy the same directory to their skill location.
 
-The only tolerated case: a requested file does not exist anywhere in the source game (the game's own optional probe, such as material maps or language files). Such 404s are recorded in the report but do not block success. If the file exists elsewhere in the source tree, the tool copies it into the package and rebuilds.
+## Success contract: exhaust automatic repair before failing
+
+Exit code 0 means everything passed, but the tool does not hand solvable problems back to the user. Before declaring failure it completes this ladder:
+
+1. **Missing toolchain**: download and install JDK 17, Android platform 36, build-tools 36.0.0, Gradle 8.14.5 and Chrome for Testing; retry downloads three times; support authenticated proxies; verify every component.
+2. **Missing Python dependencies**: create `~/.pc2android/venv` and re-exec.
+3. **Preflight 404**: search the source tree by the same path, encrypted variant, same filename and alternate roots (including Electron asar extractions); copy the file into the package.
+4. **After repair**: rebuild the APK, re-run signing/alignment/CRC and the preflight, up to two passes.
+5. **Transient network/service failures**: retry; reuse installed components.
+6. **Still failing**: exit non-zero, keep `report.json`, logs and the old APK; never emit a partial or conditional success.
+
+Every action is recorded in `report.json` under `remediation` and printed as a `Remediation (N)` list.
+
+Final gate (all must hold for exit 0):
+
+- Build, `apksigner`, `zipalign` and full ZIP CRC verification pass
+- The preflight reaches the title/map; images are ready; no image, WebGL or JavaScript errors; fonts are ready
+- Every packaged asset request is served; a packaged asset that returns 404 is a failure
+- Save → load → remove round-trip succeeds
+- Electron mode finishes startup, has the correct stage scale and passes a localStorage round-trip
+
+The only tolerated case: a requested file does not exist anywhere in the source game (the game's own optional probe). This is not a packaging defect — the file was never in the package. If it exists elsewhere in the source tree, the tool copies it into the package and rebuilds.
 
 ## Automatic installation
 
