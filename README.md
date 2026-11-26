@@ -116,6 +116,7 @@ RPG Maker MV/MZ 走通用标准数据文件；自定义 Electron 引擎（如苦
 - `data/Enemies.json`：`exp != 0` 时在最高位前加 `1`（50→150，5→15，100→1100）；`exp == 0` 不变。
 - 只改打包暂存副本，源游戏文件不动；通过临时文件 + 原子替换断开硬链接。数量写入 `report.json` 的 `cheat` 字段。
 - 自定义 Electron 引擎：递归修改 `window.__GAME_DATA__` 内所有 `price`（规则同上）；该类引擎通常没有敌人 exp 字段。
+- 找不到可改数据时，脚本按 `price / exp / gold / item / shop / enemy / 所持金 / 価格 / 経験値` 等关键字扫描资产，在错误中列出候选文件，并写入报告 `cheat.candidates`。
 - 非 RPG Maker 且无 `__GAME_DATA__` 的项目会提示跳过，不影响构建。
 
 ## 成功契约：先穷尽自动修复，再判失败

@@ -116,6 +116,7 @@ RPG Maker MV/MZ uses the standard data files; custom Electron engines (for examp
 - `data/Enemies.json`: when `exp != 0`, prepend `1` to the decimal value (50→150, 5→15, 100→1100); `exp == 0` is unchanged.
 - Only the staged copy is modified; the source game files are never touched. Hard links are broken with a temporary file + atomic replace. Counts are written to the `cheat` field of `report.json`.
 - Custom Electron engines: recursively patch every `price` in `window.__GAME_DATA__` with the same rules; these engines usually have no enemy `exp` field.
+- When no supported data is found, the script scans assets for `price / exp / gold / item / shop / enemy / 所持金 / 価格 / 経験値`, lists candidate files in the error and records them under `cheat.candidates`.
 - Projects without RPG Maker data or `__GAME_DATA__` print a skip message and build normally.
 
 ## Success contract: exhaust automatic repair before failing

@@ -1461,6 +1461,11 @@ def preflight_apk(args, apk, assets, report_dir, engine):
                 title, current, save, failures = run_rpgm_preflight(session, report_dir)
                 scope = 'Packaged web assets and Chromium gameplay; Android WebView and device GPU require device validation'
             failures.extend(session.exceptions)
+            suggestions = []
+            for failure in failures:
+                for token in re.findall(r'[\w./-]+\.(?:png|jpg|jpeg|webp|ogg|m4a|json|js)', str(failure)):
+                    if (assets / token).is_file() and token not in suggestions:
+                        suggestions.append(token)
             for error in session.http_errors:
                 if error['status'] != 404:
                     failures.append(f'HTTP {error["status"]}: {error["url"]}')
@@ -1484,7 +1489,8 @@ def preflight_apk(args, apk, assets, report_dir, engine):
                 'httpErrors': session.http_errors,
                 'failures': failures,
                 'remediation': list(REMEDIATION),
-                'cheat': getattr(args, 'cheat_summary', None)
+                'cheat': getattr(args, 'cheat_summary', None),
+                'suggestions': suggestions
             }
             report_path = report_dir / 'report.json'
             report_path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding='utf-8')
@@ -1505,7 +1511,8 @@ def preflight_apk(args, apk, assets, report_dir, engine):
                 'httpErrors': session.http_errors if session else [],
                 'failures': [str(error)],
                 'remediation': list(REMEDIATION),
-                'cheat': getattr(args, 'cheat_summary', None)
+                'cheat': getattr(args, 'cheat_summary', None),
+                'suggestions': []
             }
             report_path = report_dir / 'report.json'
             report_path.write_text(json.dumps(failure_report, ensure_ascii=False, indent=2), encoding='utf-8')
@@ -1708,6 +1715,36 @@ def patch_enemy_exp(data):
     return count
 
 
+CHEAT_KEYWORDS = (
+    'price', 'exp', 'gold', 'money', 'item', 'shop', 'enemy', 'experience',
+    '所持金', '価格', 'ゴールド', '経験値', 'アイテム'
+)
+TEXT_SUFFIXES = {'.js', '.json', '.html', '.txt', '.xml', '.csv', '.ini', '.cfg'}
+
+
+def scan_keyword_files(assets, keywords, limit=8):
+    hits = []
+    for path in assets.rglob('*'):
+        if not path.is_file() or path.suffix.lower() not in TEXT_SUFFIXES:
+            continue
+        try:
+            if path.stat().st_size > 20 * 1024 * 1024:
+                continue
+            text = path.read_text(encoding='utf-8', errors='ignore').lower()
+        except OSError:
+            continue
+        counts = {keyword: text.count(keyword.lower()) for keyword in keywords}
+        score = sum(counts.values())
+        if score:
+            hits.append((score, path.relative_to(assets).as_posix(), counts))
+    hits.sort(reverse=True)
+    return hits[:limit]
+
+
+def format_keyword_counts(counts):
+    return ', '.join(f'{keyword}={count}' for keyword, count in counts.items() if count)
+
+
 def patch_price_tree(value):
     count = 0
     if isinstance(value, dict):
@@ -1765,11 +1802,20 @@ def apply_cheats(assets):
         items += patch_rpgm_json(root / 'Items.json', patch_item_prices)
         enemies += patch_rpgm_json(root / 'Enemies.json', patch_enemy_exp)
     items += patch_bitter_gamedata(assets)
+    summary = {'items': items, 'enemies': enemies, 'candidates': []}
     if items or enemies:
         print(f'Cheat: negated {items} item price(s), boosted {enemies} enemy exp value(s)', flush=True)
+        if items and not enemies:
+            print('Cheat: no enemy exp fields found; only prices were patched', flush=True)
     else:
-        print('Cheat: no RPG Maker Items.json/Enemies.json found; skipped', flush=True)
-    return {'items': items, 'enemies': enemies}
+        print('Cheat: no supported RPG Maker/GameData price or exp fields found; skipped', flush=True)
+        hits = scan_keyword_files(assets, CHEAT_KEYWORDS)
+        if hits:
+            print('Cheat candidates (inspect these files to add an adapter):', flush=True)
+            for _, relative, counts in hits:
+                print(f'  - {relative} ({format_keyword_counts(counts)})', flush=True)
+        summary['candidates'] = [relative for _, relative, _ in hits]
+    return summary
 
 
 def run_pipeline(args):

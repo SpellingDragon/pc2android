@@ -50,6 +50,7 @@ RPG Maker MV/MZ 走通用标准数据文件；自定义 Electron 引擎（如苦
 - `data/Enemies.json`：`exp != 0` 时在最高位前加 `1`（50→150，5→15，100→1100）；`exp == 0` 不变。
 - 只改打包暂存副本，源游戏文件不动；通过临时文件 + 原子替换断开硬链接。数量写入 `report.json` 的 `cheat` 字段。
 - 自定义 Electron 引擎：递归修改 `window.__GAME_DATA__` 内所有 `price`（规则同上）；该类引擎通常没有敌人 exp 字段。
+- 找不到可改数据时，脚本按 `price / exp / gold / item / shop / enemy / 所持金 / 価格 / 経験値` 等关键字扫描资产，在错误中列出候选文件，并写入报告 `cheat.candidates`。
 - 非 RPG Maker 且无 `__GAME_DATA__` 的项目会提示跳过，不影响构建。
 
 ## 成功契约：先穷尽自动修复，再判失败
@@ -91,6 +92,7 @@ RPG Maker MV/MZ 走通用标准数据文件；自定义 Electron 引擎（如苦
 
 - **下载失败**：检查 `HTTPS_PROXY`/`HTTP_PROXY` 与 curl；重跑即可，已下载组件会复用。
 - **SDK/Gradle 安装失败**：删除 `~/.pc2android/` 对应子目录后重跑；脚本会重新下载并校验。
+- **预检失败**：报告的 `suggestions` 会列出错误信息中提到的、实际存在的已打包文件，便于定位。
 - **预检失败**：
   - `failures` 含 `Missing asset available in source`：脚本应已自动修复；若仍失败，检查源目录是否有同名文件/权限。
   - `Packaged asset not served`：打包或服务缺陷，保留 `report.json` 与 APK，按 bug 处理。
