@@ -1,0 +1,12 @@
+__pycache__/
+*.py[cod]
+.venv/
+.tools/
+.android-port-work/
+.android-port-cache/
+*-WebView.apk
+*.apk
+*-preflight/
+*.tmp
+.DS_Store
+local.properties
