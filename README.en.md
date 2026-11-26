@@ -110,12 +110,13 @@ Project-level: copy `skills/pc2android` into the project's skills directory (for
 
 ## Cheat option (optional)
 
-Applies only to RPG Maker MV/MZ data (including RPG Maker data inside Electron packages):
+RPG Maker MV/MZ uses the standard data files; custom Electron engines (for example Bitter Sweets Endroll) use a dedicated adapter for `window.__GAME_DATA__`.
 
 - `data/Items.json`: positive `price` becomes negative; `price == 0` becomes `-0`; already negative values are unchanged.
 - `data/Enemies.json`: when `exp != 0`, prepend `1` to the decimal value (50→150, 5→15, 100→1100); `exp == 0` is unchanged.
 - Only the staged copy is modified; the source game files are never touched. Hard links are broken with a temporary file + atomic replace. Counts are written to the `cheat` field of `report.json`.
-- Non-RPG Maker projects print a skip message and build normally.
+- Custom Electron engines: recursively patch every `price` in `window.__GAME_DATA__` with the same rules; these engines usually have no enemy `exp` field.
+- Projects without RPG Maker data or `__GAME_DATA__` print a skip message and build normally.
 
 ## Success contract: exhaust automatic repair before failing
 

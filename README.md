@@ -110,12 +110,13 @@ cp -R skills/pc2android ~/.claude/skills/
 
 ## 作弊选项（可选）
 
-仅对 RPG Maker MV/MZ 数据生效（含 Electron 内的 RPG Maker 数据）：
+RPG Maker MV/MZ 走通用标准数据文件；自定义 Electron 引擎（如苦甜终幕）走 `window.__GAME_DATA__` 的定制适配。
 
 - `data/Items.json`：`price > 0` 取负；`price == 0` 改为 `-0`；已是负数不变。
 - `data/Enemies.json`：`exp != 0` 时在最高位前加 `1`（50→150，5→15，100→1100）；`exp == 0` 不变。
 - 只改打包暂存副本，源游戏文件不动；通过临时文件 + 原子替换断开硬链接。数量写入 `report.json` 的 `cheat` 字段。
-- 非 RPG Maker 项目会提示跳过，不影响构建。
+- 自定义 Electron 引擎：递归修改 `window.__GAME_DATA__` 内所有 `price`（规则同上）；该类引擎通常没有敌人 exp 字段。
+- 非 RPG Maker 且无 `__GAME_DATA__` 的项目会提示跳过，不影响构建。
 
 ## 成功契约：先穷尽自动修复，再判失败
 

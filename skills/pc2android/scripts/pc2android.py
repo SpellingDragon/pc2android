@@ -1708,6 +1708,52 @@ def patch_enemy_exp(data):
     return count
 
 
+def patch_price_tree(value):
+    count = 0
+    if isinstance(value, dict):
+        for key, item in value.items():
+            if key == 'price' and isinstance(item, (int, float)) and not isinstance(item, bool):
+                if item > 0:
+                    value[key] = -item
+                    count += 1
+                elif item == 0:
+                    value[key] = NEG_ZERO
+                    count += 1
+            else:
+                count += patch_price_tree(item)
+    elif isinstance(value, list):
+        for item in value:
+            count += patch_price_tree(item)
+    return count
+
+
+def patch_bitter_gamedata(assets):
+    count = 0
+    for path in assets.rglob('GameData.js'):
+        try:
+            text = path.read_text(encoding='utf-8')
+        except OSError:
+            continue
+        marker = 'window.__GAME_DATA__'
+        if marker not in text:
+            continue
+        start = text.index('{', text.index(marker))
+        end = text.rindex('}') + 1
+        try:
+            data = json.loads(text[start:end])
+        except ValueError:
+            continue
+        changed = patch_price_tree(data)
+        if not changed:
+            continue
+        body = json.dumps(data, ensure_ascii=False, separators=(',', ':')).replace(f'"{NEG_ZERO}"', '-0')
+        temporary = path.with_name(path.name + '.cheat-tmp')
+        temporary.write_text(text[:start] + body + text[end:], encoding='utf-8')
+        os.replace(temporary, path)
+        count += changed
+    return count
+
+
 def apply_cheats(assets):
     seen = set()
     items = enemies = 0
@@ -1718,6 +1764,7 @@ def apply_cheats(assets):
         seen.add(root)
         items += patch_rpgm_json(root / 'Items.json', patch_item_prices)
         enemies += patch_rpgm_json(root / 'Enemies.json', patch_enemy_exp)
+    items += patch_bitter_gamedata(assets)
     if items or enemies:
         print(f'Cheat: negated {items} item price(s), boosted {enemies} enemy exp value(s)', flush=True)
     else:
