@@ -1,6 +1,6 @@
 ---
 name: pc2android
-description: 将 PC 上的 HTML5 / RPG Maker MV/MZ（NW.js）/ Electron 游戏一键打包为单个 Android APK。Use when the user wants to convert a PC game to Android, build an APK, port RPG Maker MV/MZ, NW.js or Electron projects, run pc2android, or needs automatic JDK/Android SDK/Gradle/Chrome installation with strict build verification and local preflight. 触发词：安卓打包、APK、单包安装、RPG Maker、NW.js、Electron、一键移植、本地预检。
+description: 将 PC 上的 HTML5 / RPG Maker MV/MZ（NW.js）/ Electron 游戏一键打包为单个 Android APK。Use when the user wants to convert a PC game to Android, build an APK, port RPG Maker MV/MZ, NW.js or Electron projects, run pc2android, or needs automatic JDK/Android SDK/Gradle/Chrome installation with strict build verification and local preflight. 触发词：安卓打包、APK、单包安装、RPG Maker、NW.js、Electron、一键移植、本地预检。可选 RPG Maker 作弊：物品价格取负、敌人经验最高位前加 1。
 license: MIT
 metadata:
   author: SpellingDragon
@@ -31,10 +31,25 @@ python3 scripts/pc2android.py <project-path>
 python3 <skill-dir>/scripts/pc2android.py <project-path>
 ```
 
+可选作弊（仅 RPG Maker 数据）：
+
+```bash
+python3 <skill-dir>/scripts/pc2android.py <project-path> --cheat
+```
+
 3. 检查退出码与输出：
    - 成功：`APK=...`、`SHA256=...`、`Preflight report: ...`
    - 失败：非零退出，读取 `<name>-preflight/report.json` 的 `failures` 与 `httpErrors`
 4. 失败时按“故障处理”修复后重跑；不要跳过校验、不要手工改写报告、不要用旧包冒充成功。
+
+## 作弊选项（可选）
+
+仅对 RPG Maker MV/MZ 数据生效（含 Electron 内的 RPG Maker 数据）：
+
+- `data/Items.json`：`price > 0` 取负；`price == 0` 改为 `-1`；已是负数不变。
+- `data/Enemies.json`：`exp != 0` 时在最高位前加 `1`（50→150，5→15，100→1100）；`exp == 0` 不变。
+- 只改打包暂存副本，源游戏文件不动；通过临时文件 + 原子替换断开硬链接。
+- 非 RPG Maker 项目会提示跳过，不影响构建。
 
 ## 成功契约：先穷尽自动修复，再判失败
 
@@ -99,6 +114,7 @@ python3 <skill-dir>/scripts/pc2android.py \
 - `--dry-run`：只检测与暂存
 - 省略 `--preflight`：只构建并校验
 - `--browser <path>`：指定 Chromium
+- `--cheat`：启用上述 RPG Maker 作弊
 - `--keep-work`：保留生成的 Android 工程
 
 ## 合规

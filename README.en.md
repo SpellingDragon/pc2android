@@ -20,6 +20,12 @@ You can also run the script inside the skill directly:
 python3 skills/pc2android/scripts/pc2android.py /path/to/game
 ```
 
+Optional cheat (RPG Maker data only):
+
+```bash
+python3 skills/pc2android/scripts/pc2android.py /path/to/game --cheat
+```
+
 It automatically:
 
 - detects RPG Maker MZ/MV (NW.js) and Electron (asar) projects
@@ -57,6 +63,7 @@ flowchart TD
     G --> G1["Node shim + asset-index"]
     G --> G2["Split tall encrypted images"]
     G --> G3["Adaptive icons"]
+    G --> G4["--cheat: negate item prices / prepend 1 to enemy exp"]
     G1 --> H["Build APK"]
     G2 --> H
     G3 --> H
@@ -100,6 +107,15 @@ cp -R skills/pc2android ~/.claude/skills/
 In Claude Code, invoke `/pc2android /path/to/game` or trigger it with natural language.
 
 Project-level: copy `skills/pc2android` into the project's skills directory (for example `.qoder/skills/`, `.claude/skills/`). For other agents, copy the same directory to their skill location.
+
+## Cheat option (optional)
+
+Applies only to RPG Maker MV/MZ data (including RPG Maker data inside Electron packages):
+
+- `data/Items.json`: positive `price` becomes negative; `price == 0` becomes `-1`; already negative values are unchanged.
+- `data/Enemies.json`: when `exp != 0`, prepend `1` to the decimal value (50→150, 5→15, 100→1100); `exp == 0` is unchanged.
+- Only the staged copy is modified; the source game files are never touched. Hard links are broken with a temporary file + atomic replace.
+- Non-RPG Maker projects print a skip message and build normally.
 
 ## Success contract: exhaust automatic repair before failing
 
@@ -176,6 +192,7 @@ python3 skills/pc2android/scripts/pc2android.py \
 - `--dry-run` — detect and stage only
 - omit `--preflight` — build and verify without the browser run
 - `--browser` — explicit Chromium/Chrome path
+- `--cheat` — enable the RPG Maker cheat (negative item prices, prepended enemy exp)
 - `--keep-work` — keep the generated Android project
 
 ## Known limitations

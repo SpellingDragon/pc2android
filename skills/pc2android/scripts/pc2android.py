@@ -1630,6 +1630,7 @@ def parse_args():
     parser.add_argument('--preflight', action='store_true', help='Validate packaged scenes and saves in headless Chromium')
     parser.add_argument('--browser', type=Path, help='Chrome or Chromium executable used by --preflight')
     parser.add_argument('--keep-work', action='store_true', help='Keep the generated Android project')
+    parser.add_argument('--cheat', action='store_true', help='Apply RPG Maker cheats: negate item prices and prepend 1 to nonzero enemy exp')
     parser.add_argument('--sdk', type=Path, help='Android SDK root (default: ANDROID_HOME or ~/Library/Android/sdk)')
     parser.add_argument('--java-home', type=Path, help='JDK 17+ home (default: JAVA_HOME or /usr/libexec/java_home)')
     parser.add_argument('--gradle', type=Path, help='Gradle 8.14.5 executable (default: gradle on PATH)')
@@ -1657,6 +1658,68 @@ def parse_args():
     return args
 
 
+def patch_rpgm_json(path, patcher):
+    try:
+        data = json.loads(path.read_text(encoding='utf-8-sig'))
+    except (OSError, ValueError):
+        return 0
+    count = patcher(data)
+    if count:
+        temporary = path.with_name(path.name + '.cheat-tmp')
+        temporary.write_text(json.dumps(data, ensure_ascii=False, separators=(',', ':')), encoding='utf-8')
+        os.replace(temporary, path)
+    return count
+
+
+def patch_item_prices(data):
+    count = 0
+    entries = data.values() if isinstance(data, dict) else data
+    for item in entries:
+        if not isinstance(item, dict):
+            continue
+        price = item.get('price')
+        if isinstance(price, bool) or not isinstance(price, (int, float)):
+            continue
+        if price > 0:
+            item['price'] = -price
+            count += 1
+        elif price == 0:
+            item['price'] = -1
+            count += 1
+    return count
+
+
+def patch_enemy_exp(data):
+    count = 0
+    entries = data.values() if isinstance(data, dict) else data
+    for enemy in entries:
+        if not isinstance(enemy, dict):
+            continue
+        exp = enemy.get('exp')
+        if isinstance(exp, bool) or not isinstance(exp, (int, float)) or exp == 0:
+            continue
+        sign = -1 if exp < 0 else 1
+        enemy['exp'] = sign * int('1' + str(abs(int(exp))))
+        count += 1
+    return count
+
+
+def apply_cheats(assets):
+    seen = set()
+    items = enemies = 0
+    for root in (assets / 'data', assets / 'base.asar/data', assets / 'app.asar/data', assets / 'www/data'):
+        root = root.resolve()
+        if not root.is_dir() or root in seen:
+            continue
+        seen.add(root)
+        items += patch_rpgm_json(root / 'Items.json', patch_item_prices)
+        enemies += patch_rpgm_json(root / 'Enemies.json', patch_enemy_exp)
+    if items or enemies:
+        print(f'Cheat: negated {items} item price(s), boosted {enemies} enemy exp value(s)', flush=True)
+    else:
+        print('Cheat: no RPG Maker Items.json/Enemies.json found; skipped', flush=True)
+
+
 def run_pipeline(args):
     if not args.source.is_dir():
         raise RuntimeError(f'Source directory not found: {args.source}')
@@ -1679,6 +1742,8 @@ def run_pipeline(args):
     assets = workdir / 'app/src/main/assets'
     if engine in ('rmmz', 'rmmv') and uses_access_sync(assets):
         write_asset_manifest(assets)
+    if args.cheat:
+        apply_cheats(assets)
     if args.dry_run:
         print(f'Dry run complete. Staged project: {workdir}')
         return
@@ -1960,7 +2025,7 @@ def ensure_python_deps():
     os.execv(str(python), [str(python), str(Path(__file__).resolve())] + sys.argv[1:])
 
 
-def one_command(project):
+def one_command(project, cheat=False):
     project = Path(project).expanduser().resolve()
     if not project.is_dir():
         raise RuntimeError(f'Project directory not found: {project}')
@@ -1969,7 +2034,7 @@ def one_command(project):
     args = types.SimpleNamespace(
         source=project, name=name, application_id=application_id, out=Path.cwd(),
         engine='auto', dry_run=False, preflight=True, browser=toolchain.get('browser'), keep_work=False,
-        sdk=toolchain['sdk'], java_home=toolchain['java_home'], gradle=toolchain['gradle'],
+        cheat=cheat, sdk=toolchain['sdk'], java_home=toolchain['java_home'], gradle=toolchain['gradle'],
     )
     run_pipeline(args)
 
@@ -1982,8 +2047,8 @@ if __name__ == '__main__':
     try:
         if '--help' not in sys.argv and '-h' not in sys.argv:
             ensure_python_deps()
-        if len(sys.argv) == 2 and not sys.argv[1].startswith('-'):
-            one_command(Path(sys.argv[1]))
+        if len(sys.argv) >= 2 and not sys.argv[1].startswith('-'):
+            one_command(Path(sys.argv[1]), cheat='--cheat' in sys.argv[2:])
         else:
             main()
     except subprocess.CalledProcessError as error:
