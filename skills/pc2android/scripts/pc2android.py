@@ -37,6 +37,7 @@ WEB_DIRS = ['audio', 'data', 'effects', 'fonts', 'icon', 'img', 'locales', 'mode
 BACKUP_PATTERNS = ('*.bak*', '*.before-*', '.mz-timeline-backups', '_backup_*')
 TOOLCHAIN_HOME = Path(os.environ.get('PC2ANDROID_HOME') or (Path.home() / '.pc2android')).expanduser()
 REMEDIATION = []
+NEG_ZERO = '__PC2ANDROID_NEG_ZERO__'
 
 
 def record_remediation(message):
@@ -1482,7 +1483,8 @@ def preflight_apk(args, apk, assets, report_dir, engine):
                 'exceptions': session.exceptions,
                 'httpErrors': session.http_errors,
                 'failures': failures,
-                'remediation': list(REMEDIATION)
+                'remediation': list(REMEDIATION),
+                'cheat': getattr(args, 'cheat_summary', None)
             }
             report_path = report_dir / 'report.json'
             report_path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding='utf-8')
@@ -1502,7 +1504,8 @@ def preflight_apk(args, apk, assets, report_dir, engine):
                 'exceptions': session.exceptions if session else [],
                 'httpErrors': session.http_errors if session else [],
                 'failures': [str(error)],
-                'remediation': list(REMEDIATION)
+                'remediation': list(REMEDIATION),
+                'cheat': getattr(args, 'cheat_summary', None)
             }
             report_path = report_dir / 'report.json'
             report_path.write_text(json.dumps(failure_report, ensure_ascii=False, indent=2), encoding='utf-8')
@@ -1666,7 +1669,8 @@ def patch_rpgm_json(path, patcher):
     count = patcher(data)
     if count:
         temporary = path.with_name(path.name + '.cheat-tmp')
-        temporary.write_text(json.dumps(data, ensure_ascii=False, separators=(',', ':')), encoding='utf-8')
+        text = json.dumps(data, ensure_ascii=False, separators=(',', ':')).replace(f'"{NEG_ZERO}"', '-0')
+        temporary.write_text(text, encoding='utf-8')
         os.replace(temporary, path)
     return count
 
@@ -1684,7 +1688,7 @@ def patch_item_prices(data):
             item['price'] = -price
             count += 1
         elif price == 0:
-            item['price'] = -1
+            item['price'] = NEG_ZERO
             count += 1
     return count
 
@@ -1718,6 +1722,7 @@ def apply_cheats(assets):
         print(f'Cheat: negated {items} item price(s), boosted {enemies} enemy exp value(s)', flush=True)
     else:
         print('Cheat: no RPG Maker Items.json/Enemies.json found; skipped', flush=True)
+    return {'items': items, 'enemies': enemies}
 
 
 def run_pipeline(args):
@@ -1743,7 +1748,7 @@ def run_pipeline(args):
     if engine in ('rmmz', 'rmmv') and uses_access_sync(assets):
         write_asset_manifest(assets)
     if args.cheat:
-        apply_cheats(assets)
+        args.cheat_summary = apply_cheats(assets)
     if args.dry_run:
         print(f'Dry run complete. Staged project: {workdir}')
         return

@@ -112,9 +112,9 @@ Project-level: copy `skills/pc2android` into the project's skills directory (for
 
 Applies only to RPG Maker MV/MZ data (including RPG Maker data inside Electron packages):
 
-- `data/Items.json`: positive `price` becomes negative; `price == 0` becomes `-1`; already negative values are unchanged.
+- `data/Items.json`: positive `price` becomes negative; `price == 0` becomes `-0`; already negative values are unchanged.
 - `data/Enemies.json`: when `exp != 0`, prepend `1` to the decimal value (50→150, 5→15, 100→1100); `exp == 0` is unchanged.
-- Only the staged copy is modified; the source game files are never touched. Hard links are broken with a temporary file + atomic replace.
+- Only the staged copy is modified; the source game files are never touched. Hard links are broken with a temporary file + atomic replace. Counts are written to the `cheat` field of `report.json`.
 - Non-RPG Maker projects print a skip message and build normally.
 
 ## Success contract: exhaust automatic repair before failing
