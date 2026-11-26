@@ -32,6 +32,25 @@ python3 pc2android.py /path/to/game
 <应用名>-preflight/map.png
 ```
 
+## 作为 Qoder Skill 挂载
+
+仓库自带 `skills/pc2android/`，可直接挂载为 Qoder skill：
+
+```bash
+git clone https://github.com/SpellingDragon/pc2android.git
+cd pc2android
+mkdir -p ~/.qoder/skills
+cp -R skills/pc2android ~/.qoder/skills/
+```
+
+在 Qoder 中执行 `/skills reload`，然后：
+
+```text
+/pc2android /path/to/game
+```
+
+项目级挂载：把 `skills/pc2android` 复制到项目的 `.qoder/skills/` 目录。
+
 ## 成功契约
 
 退出码 0 表示以下全部成立，不存在“带条件的成功”：

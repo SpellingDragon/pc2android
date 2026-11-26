@@ -13,5 +13,24 @@ jobs:
         with:
           python-version: '3.11'
       - run: python -m pip install -r requirements.txt
-      - run: python -m py_compile pc2android.py
+      - run: python -m py_compile pc2android.py skills/pc2android/scripts/pc2android.py
+      - run: cmp pc2android.py skills/pc2android/scripts/pc2android.py
       - run: python pc2android.py --help
+      - name: Validate skill metadata
+        run: |
+          python - <<'PY'
+          import re
+          from pathlib import Path
+
+          text = Path('skills/pc2android/SKILL.md').read_text()
+          assert text.startswith('---\n'), 'missing frontmatter'
+          end = text.index('\n---\n', 3)
+          frontmatter = text[4:end]
+          name = re.search(r'^name: (.+)$', frontmatter, re.M).group(1).strip()
+          description = re.search(r'^description: (.+)$', frontmatter, re.M).group(1).strip()
+          assert re.fullmatch(r'[a-z0-9-]+', name), name
+          assert len(description) <= 1024, len(description)
+          assert len(text.splitlines()) < 500, len(text.splitlines())
+          assert 'TODO:' not in text, 'unresolved TODO'
+          print('skill ok:', name, len(description))
+          PY

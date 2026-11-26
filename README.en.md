@@ -32,6 +32,25 @@ Output is written to the current directory:
 <app-name>-preflight/map.png
 ```
 
+## Use as a Qoder Skill
+
+The repository ships `skills/pc2android/` as a ready-to-mount Qoder skill:
+
+```bash
+git clone https://github.com/SpellingDragon/pc2android.git
+cd pc2android
+mkdir -p ~/.qoder/skills
+cp -R skills/pc2android ~/.qoder/skills/
+```
+
+Run `/skills reload` in Qoder, then:
+
+```text
+/pc2android /path/to/game
+```
+
+For a project-level mount, copy `skills/pc2android` into `<project>/.qoder/skills/`.
+
 ## Success contract
 
 Exit code 0 means all of the following hold. There is no partial or conditional success:
