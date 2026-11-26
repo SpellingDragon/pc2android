@@ -8,8 +8,16 @@ One command, one argument. Missing JDK, Android SDK components, Gradle, Chrome f
 
 ## One command
 
+The repository ships the tool only as an Agent Skill. After mounting:
+
+```text
+/pc2android /path/to/game
+```
+
+You can also run the script inside the skill directly:
+
 ```bash
-python3 pc2android.py /path/to/game
+python3 skills/pc2android/scripts/pc2android.py /path/to/game
 ```
 
 It automatically:
@@ -156,7 +164,7 @@ Downloads use the system `curl` and honor `HTTPS_PROXY` / `HTTP_PROXY`, includin
 The one-command mode is the default. For full control:
 
 ```bash
-python3 pc2android.py \
+python3 skills/pc2android/scripts/pc2android.py \
   --source /path/to/game \
   --name "Game Name" \
   --application-id com.example.game \

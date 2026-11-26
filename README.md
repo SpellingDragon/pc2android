@@ -8,8 +8,16 @@
 
 ## 一行命令
 
+仓库只以 Agent Skill 形式提供脚本。挂载后：
+
+```text
+/pc2android /path/to/game
+```
+
+也可以直接运行 skill 内脚本：
+
 ```bash
-python3 pc2android.py /path/to/game
+python3 skills/pc2android/scripts/pc2android.py /path/to/game
 ```
 
 它会自动完成：
@@ -156,7 +164,7 @@ cp -R skills/pc2android ~/.claude/skills/
 一行命令是默认模式；需要控制细节时可用完整参数：
 
 ```bash
-python3 pc2android.py \
+python3 skills/pc2android/scripts/pc2android.py \
   --source /path/to/game \
   --name "Game Name" \
   --application-id com.example.game \

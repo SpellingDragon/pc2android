@@ -13,9 +13,8 @@ jobs:
         with:
           python-version: '3.11'
       - run: python -m pip install -r requirements.txt
-      - run: python -m py_compile pc2android.py skills/pc2android/scripts/pc2android.py
-      - run: cmp pc2android.py skills/pc2android/scripts/pc2android.py
-      - run: python pc2android.py --help
+      - run: python -m py_compile skills/pc2android/scripts/pc2android.py
+      - run: python skills/pc2android/scripts/pc2android.py --help
       - name: Validate Agent Skills metadata
         run: |
           python - <<'PY'
