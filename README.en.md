@@ -1,7 +1,7 @@
 # game-pc2and
 
 **Turn PC games into one Android APK — with one command.**  
-PC-to-Android packaging for RPG Maker MV/MZ, NW.js and Electron games: automatic dependency setup, build verification, touch controls, an optional translucent virtual keyboard and optional cheats.
+RPG Maker MV/MZ · NW.js · Electron · automatic setup · verification · virtual keyboard · optional cheats
 
 [![CI](https://github.com/SpellingDragon/game-pc2and/actions/workflows/ci.yml/badge.svg)](https://github.com/SpellingDragon/game-pc2and/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
@@ -10,15 +10,15 @@ PC-to-Android packaging for RPG Maker MV/MZ, NW.js and Electron games: automatic
 
 ![game-pc2and hero](docs/images/hero.png)
 
-## See it in 30 seconds
+## Demo
 
 ![Build and gameplay demo](docs/images/demo-preview.gif)
 
-[Watch the full demo video (real build logs, virtual keyboard, 3D camera and verification report)](https://github.com/SpellingDragon/game-pc2and/releases/latest/download/game-pc2and-demo.mp4)
+[Full demo video (real build logs, virtual keyboard, 3D camera and verification report)](https://github.com/SpellingDragon/game-pc2and/releases/latest/download/game-pc2and-demo.mp4)
 
-## One command
+## Usage
 
-### Option 1: use it as an Agent Skill
+### As an Agent Skill
 
 ```bash
 git clone https://github.com/SpellingDragon/game-pc2and.git
@@ -33,20 +33,13 @@ Copy `skills/pc2android` into your agent's user-level or project-level skills di
 
 Skill directory locations vary by agent; mount the same directory according to your agent's documentation.
 
-### Option 2: run the script directly
+### Direct script
 
 ```bash
 python3 skills/pc2android/scripts/pc2android.py /path/to/game
 ```
 
-On the first run, missing JDK, Android SDK components, Gradle, Chrome for Testing and Python dependencies are downloaded, installed and verified automatically. You need network access and a few GB of free disk space.
-
-## What you get
-
-- **One self-contained APK** — no OBB, no manual extraction.
-- **A playable touch build** — menu/ADV games stay touch-friendly; MZ3D and other input-rich games get a translucent virtual keyboard.
-- **A verification report** — startup, title/map, images, WebGL, fonts and save/load round-trip.
-- **Optional cheats** — negative item prices, `-0` for zero prices, prepended enemy EXP, plus a custom Electron price adapter.
+On the first run, missing JDK, Android SDK components, Gradle, Chrome for Testing and Python dependencies are installed automatically. Network access and a few GB of free disk space are required.
 
 Output is written to the current directory:
 
@@ -56,30 +49,9 @@ Output is written to the current directory:
 <game-name>-preflight/title.png / map.png
 ```
 
-## Why it is easy to use
+The APK is emitted only on exit code 0. On failure, inspect `failures`, `suggestions`, `cheat.candidates` and `remediation` in `report.json`.
 
-| You do not have to solve | The tool handles it |
-|---|---|
-| Installing JDK, SDK, Gradle and Chrome | Downloads, installs and verifies missing tools |
-| Detecting the engine and entry point | RPG Maker MZ/MV, NW.js and Electron detection |
-| Encrypted assets and plugin compatibility | Automatic compatibility fixes |
-| Playing keyboard-heavy games on a phone | A translucent virtual keyboard for rich-input games |
-| Knowing whether the APK really boots | Chromium preflight served directly from the APK |
-| Finding cheatable data | Keyword scan with candidate files in the error report |
-
-## Screenshots
-
-### Translucent virtual keyboard
-
-Hold = keydown, release = keyup, multi-touch, hide toggle and opacity control.
-
-![Translucent virtual keyboard](docs/images/virtual-keyboard.png)
-
-### Real verification report
-
-![Verification report](docs/images/preflight.png)
-
-## Supported games
+## Supported engines
 
 | Engine | Status |
 |---|---|
@@ -89,40 +61,10 @@ Hold = keydown, release = keyup, multi-touch, hide toggle and opacity control.
 | Electron (asar) | verified |
 | Windows-native engines (QLIE, KiriKiri, ...) | use Winlator instead |
 
-## How it works, briefly
+## Touch controls and cheats
 
-1. Detect the engine and stage the web runtime.
-2. Apply compatibility fixes for Node APIs, keyboard mappings and encrypted images.
-3. Build a single Android WebView APK with adaptive launcher icons.
-4. Serve assets directly from the APK and run a Chromium preflight.
-5. Analyze input needs and add touch controls or a virtual keyboard.
-
-<details>
-<summary>Pipeline diagram</summary>
-
-```mermaid
-flowchart TD
-    A(["Project path"]) --> B["Install/verify dependencies"]
-    B --> C{"Detect engine"}
-    C --> D["Stage + compatibility fixes"]
-    D --> E["Input profile touch/rich"]
-    E --> F["Build APK + icons"]
-    F --> G["Sign/align/CRC verification"]
-    G --> H["APK-served preflight"]
-    H --> I{"All passed?"}
-    I -->|"yes"| J(["APK + report"])
-    I -->|"repairable"| K["Repair and rebuild"]
-    K --> G
-    I -->|"still failing"| Z(["Non-zero exit, keep old APK"])
-```
-
-</details>
-
-## Success means success
-
-Exit code 0 means build, signing, alignment, CRC, images, WebGL, fonts, packaged-asset serving and save/load verification all passed. The tool automatically installs dependencies and repairs missing assets before failing; it never leaves a partial or conditional success.
-
-## Optional cheats
+- Menu/ADV/turn-based games keep touch input; input-rich games such as MZ3D titles get a translucent virtual keyboard with hide and opacity controls.
+- Hold = keydown, release = keyup, multi-touch supported.
 
 ```bash
 python3 skills/pc2android/scripts/pc2android.py /path/to/game --cheat
@@ -131,6 +73,10 @@ python3 skills/pc2android/scripts/pc2android.py /path/to/game --cheat
 - RPG Maker: positive `price` becomes negative, `price == 0` becomes `-0`; nonzero enemy `exp` gets a leading `1`.
 - Custom Electron engines such as Bitter Sweets Endroll: recursively patch `price` in `window.__GAME_DATA__`.
 - Only staged data is changed; source game files are untouched. Counts are written to `report.json` under `cheat`.
+
+## Technology
+
+Detect engine and entry → compatibility fixes → WebView APK → APK-served preflight → input profile and touch/virtual keyboard.
 
 <details>
 <summary>Advanced options and troubleshooting</summary>
@@ -150,7 +96,7 @@ python3 skills/pc2android/scripts/pc2android.py \
 - `--browser <path>` — explicit Chromium path
 - `--keep-work` — keep the generated Android project
 
-For failures, inspect `failures`, `cheat.candidates`, `suggestions` and `remediation` in `report.json`. For download errors, check `HTTPS_PROXY` and curl, then rerun.
+For download errors, check `HTTPS_PROXY` and curl, then rerun.
 
 </details>
 
@@ -158,8 +104,8 @@ For failures, inspect `failures`, `cheat.candidates`, `suggestions` and `remedia
 
 **Do I need root?** No.  
 **Do I need Android Studio?** No, SDK components are installed automatically.  
-**Does it support every PC game?** No, it currently targets HTML5, RPG Maker MV/MZ, NW.js and Electron games.  
-**Are game assets included?** No. The repository contains only the tool and documentation; package only games you own or are authorized to distribute.  
+**Does it support every PC game?** It currently targets HTML5, RPG Maker MV/MZ, NW.js and Electron games.  
+**Are game assets included?** No. Package only games you own or are authorized to distribute.  
 **Does the virtual keyboard play for me?** No, it only translates touch into game key events.
 
 ## License
