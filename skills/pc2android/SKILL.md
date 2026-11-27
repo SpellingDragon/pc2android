@@ -53,6 +53,17 @@ RPG Maker MV/MZ 走通用标准数据文件；自定义 Electron 引擎（如苦
 - 找不到可改数据时，脚本按 `price / exp / gold / item / shop / enemy / 所持金 / 価格 / 経験値` 等关键字扫描资产，在错误中列出候选文件，并写入报告 `cheat.candidates`。
 - 非 RPG Maker 且无 `__GAME_DATA__` 的项目会提示跳过，不影响构建。
 
+## 输入画像与虚拟键盘
+
+打包时生成 `input-profile.json`：
+
+- `touch`：菜单/ADV/回合制或已有触屏按钮覆盖（如监狱勇者、苦甜终幕），不叠加控件。
+- `rich`：存在 MZ3D/指针锁定等连续输入，或自定义按键较多且无触屏覆盖（如影堕），APK 注入半透明虚拟键盘。
+
+若 MZ3D 与 MessageSkip 同时存在，打包会把 MessageSkip 自动键从 A 改为 M，避免 A 被 MZ3D 的移动映射占用（写入 `remediation`）。
+
+虚拟键盘按住=keydown、松开=keyup，支持多指；事件同时带 `key`/`code`/`keyCode`/`which`，兼容 MZ Input 与 BackLog 的 `code` 监听；顶部可隐藏、可调透明度，切后台自动释放按键。预检报告含 `inputProfile`（class/evidence/entropy/recommended_keys）。
+
 ## 成功契约：先穷尽自动修复，再判失败
 
 退出码 0 只代表“全部通过”，但工具不会把能自动解决的问题丢给用户。判失败之前，它会按下面的顺序把能补的条件全部补齐：

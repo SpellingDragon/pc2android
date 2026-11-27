@@ -64,6 +64,7 @@ flowchart TD
     G --> G2["Split tall encrypted images"]
     G --> G3["Adaptive icons"]
     G --> G4["--cheat: negate item prices / prepend 1 to enemy exp"]
+    G --> G5["Input profile touch/rich<br/>rich → translucent virtual keyboard"]
     G1 --> H["Build APK"]
     G2 --> H
     G3 --> H
@@ -118,6 +119,17 @@ RPG Maker MV/MZ uses the standard data files; custom Electron engines (for examp
 - Custom Electron engines: recursively patch every `price` in `window.__GAME_DATA__` with the same rules; these engines usually have no enemy `exp` field.
 - When no supported data is found, the script scans assets for `price / exp / gold / item / shop / enemy / 所持金 / 価格 / 経験値`, lists candidate files in the error and records them under `cheat.candidates`.
 - Projects without RPG Maker data or `__GAME_DATA__` print a skip message and build normally.
+
+## Input profile and virtual keyboard
+
+Each build writes `input-profile.json`:
+
+- `touch`: menu/ADV/turn-based games or games already covered by touch buttons (PrisonBrave, Bitter), no overlay.
+- `rich`: games with continuous input, pointer lock or many custom keys without touch coverage (Shadowfall); the APK gets a translucent virtual keyboard.
+
+When MZ3D and MessageSkip are both present, the MessageSkip auto key is remapped from A to M so it is not shadowed by MZ3D movement (recorded in `remediation`).
+
+Holding a button sends `keydown`, releasing sends `keyup`, with multi-touch support. Events carry `key`, `code`, `keyCode` and `which` so both MZ Input and `KeyboardEvent.code` listeners work. The keyboard can be hidden, its opacity adjusted, and all keys are released on blur/background. The preflight report includes `inputProfile` (class/evidence/entropy/recommended_keys).
 
 ## Success contract: exhaust automatic repair before failing
 

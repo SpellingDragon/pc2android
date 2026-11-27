@@ -14,6 +14,7 @@ import hashlib
 import http.server
 import io
 import json
+import math
 import mimetypes
 import os
 import platform
@@ -253,6 +254,7 @@ public class MainActivity extends Activity {
     private static final String GAME_URL = "https://appassets.androidplatform.net/__GAME_ENTRY__";
     private static final String GAME_HOST = "appassets.androidplatform.net";
     private static final boolean IS_ELECTRON = __IS_ELECTRON__;
+    private static final boolean USE_VIRTUAL_KEYS = __USE_VIRTUAL_KEYS__;
 
     private FrameLayout root;
     private LinearLayout loadingOverlay;
@@ -388,6 +390,14 @@ public class MainActivity extends Activity {
                 }
                 catch (IOException error) {
                     android.util.Log.w("RPGMPort", "Electron startup script unavailable", error);
+                }
+            }
+            if (USE_VIRTUAL_KEYS) {
+                try {
+                    view.evaluateJavascript(readAsset("virtual-keys.js"), null);
+                }
+                catch (IOException error) {
+                    android.util.Log.w("RPGMPort", "Virtual keyboard unavailable", error);
                 }
             }
             view.evaluateJavascript(
@@ -825,14 +835,252 @@ def write_launcher_icons(app, candidates):
     (anydpi / 'ic_launcher_round.xml').write_text(adaptive, encoding='utf-8')
 
 
+STANDARD_ACTIONS = {
+    'ok', 'cancel', 'escape', 'shift', 'control', 'tab', 'pageup', 'pagedown',
+    'left', 'right', 'up', 'down', 'menu', 'debug'
+}
+
+
+def key_def(identifier, label, key_code, code, key, group='extra'):
+    return {'id': identifier, 'label': label, 'keyCode': key_code, 'code': code, 'key': key, 'group': group}
+
+
+def base_virtual_keys():
+    return [
+        key_def('up', '↑', 38, 'ArrowUp', 'ArrowUp', 'dpad'),
+        key_def('down', '↓', 40, 'ArrowDown', 'ArrowDown', 'dpad'),
+        key_def('left', '←', 37, 'ArrowLeft', 'ArrowLeft', 'dpad'),
+        key_def('right', '→', 39, 'ArrowRight', 'ArrowRight', 'dpad'),
+        key_def('ok', 'OK', 13, 'Enter', 'Enter', 'action'),
+        key_def('cancel', 'ESC', 27, 'Escape', 'Escape', 'action'),
+        key_def('shift', 'DASH', 16, 'ShiftLeft', 'Shift', 'action'),
+    ]
+
+
+def analyze_input_profile(assets, engine):
+    plugin_dir = assets / 'js/plugins'
+    plugin_text = ''
+    plugin_names = []
+    if plugin_dir.is_dir():
+        for path in plugin_dir.glob('*.js'):
+            plugin_text += path.read_text(encoding='utf-8', errors='ignore')
+        plugins_file = assets / 'js/plugins.js'
+        if plugins_file.is_file():
+            match = re.search(r'var \$plugins\s*=\s*(\[.*\])\s*;?\s*$', plugins_file.read_text(encoding='utf-8', errors='ignore'), re.S)
+            if match:
+                try:
+                    plugin_names = [item.get('name', '') for item in json.loads(match.group(1)) if item.get('status')]
+                except ValueError:
+                    pass
+    mz3d = 'mz3d' in plugin_names
+    pointer_lock = 'pointerLockElement' in plugin_text
+    command_buttons = 'CommandButton' in plugin_text or 'Sprite_InputHandle' in plugin_text
+    continuous = mz3d or pointer_lock
+    action_freq = {}
+    for name in re.findall(r"Input\.is(?:Triggered|Pressed|Down|Repeated)\(['\"]([^'\"]+)", plugin_text):
+        action_freq[name] = action_freq.get(name, 0) + 1
+    for name in re.findall(r'INPUT_CLASS_([A-Z_]+)', plugin_text):
+        name = name.lower()
+        action_freq[name] = action_freq.get(name, 0) + 1
+    custom_actions = sorted(set(action_freq) - STANDARD_ACTIONS)
+    if action_freq:
+        total = sum(action_freq.values())
+        entropy = -sum((count / total) * math.log2(count / total) for count in action_freq.values())
+        h_norm = entropy / math.log2(len(action_freq)) if len(action_freq) > 1 else 0.0
+    else:
+        h_norm = 0.0
+    if continuous:
+        klass, confidence = 'rich', 0.95
+    elif command_buttons:
+        klass, confidence = 'touch', 0.85
+    elif len(custom_actions) >= 4:
+        klass, confidence = 'rich', 0.65
+    else:
+        klass, confidence = 'touch', 0.6
+    keys = base_virtual_keys()
+    if 'tab' in action_freq or 'messageskip' in plugin_text.lower():
+        keys.append(key_def('tab', 'SKIP', 9, 'Tab', 'Tab'))
+    if 'MessageSkip' in plugin_names:
+        if mz3d:
+            keys.append(key_def('auto_m', 'AUTO', 77, 'KeyM', 'm'))
+        else:
+            keys.append(key_def('auto_a', 'AUTO', 65, 'KeyA', 'a'))
+    elif 'INPUT_CLASS_AUTO' in plugin_text:
+        keys.append(key_def('auto_q', 'AUTO', 81, 'KeyQ', 'q'))
+    if 'AltRight' in plugin_text:
+        keys.append(key_def('alt_right', 'LOG', 18, 'AltRight', 'Alt'))
+    if mz3d:
+        keys.append(key_def('camera_q', 'Q', 81, 'KeyQ', 'q'))
+        keys.append(key_def('camera_e', 'E', 69, 'KeyE', 'e'))
+    if 'INPUT_CLASS_SELECT' in plugin_text:
+        keys.append(key_def('select_e', 'SEL', 69, 'KeyE', 'e'))
+    if 'INPUT_CLASS_START' in plugin_text:
+        keys.append(key_def('start_r', 'START', 82, 'KeyR', 'r'))
+    if 'INPUT_CLASS_MENU' in plugin_text:
+        keys.append(key_def('menu_c', 'MENU', 67, 'KeyC', 'c'))
+    if 'INPUT_CLASS_CTRL' in plugin_text and not mz3d:
+        keys.append(key_def('ctrl', 'CTRL', 17, 'ControlLeft', 'Control'))
+    if 'TMCommonEventKey' in plugin_names:
+        for digit in (0, 1, 9):
+            if f'commonKey{digit}' in plugin_text:
+                keys.append(key_def(f'digit{digit}', str(digit), 48 + digit, f'Digit{digit}', str(digit)))
+    evidence = []
+    if mz3d:
+        evidence.append('MZ3D')
+    if pointer_lock:
+        evidence.append('pointerLock')
+    if command_buttons:
+        evidence.append('touchButtons')
+    if custom_actions:
+        evidence.append('customActions=' + str(len(custom_actions)))
+    return {
+        'class': klass,
+        'confidence': confidence,
+        'entropy': {
+            'H_norm': round(h_norm, 4),
+            'H_res': 1.0 if continuous else round(min(len(custom_actions) / 8, 1.0), 4),
+            'rate_ratio': 1.0 if continuous else 0.2,
+        },
+        'evidence': evidence,
+        'recommended_keys': [key['id'] for key in keys],
+        'keys': keys,
+    }
+
+
+VIRTUAL_KEYS_TEMPLATE = r'''(() => {
+  'use strict';
+  if (window.__pc2aVirtualKeysInstalled) return;
+  window.__pc2aVirtualKeysInstalled = true;
+  const PROFILE = __PROFILE_JSON__;
+  const keys = PROFILE.keys;
+  const byId = Object.fromEntries(keys.map(k => [k.id, k]));
+  const pressed = new Set();
+  const root = document.createElement('div');
+  root.id = 'pc2a-virtual-keys';
+  const style = document.createElement('style');
+  style.textContent = `
+    #pc2a-virtual-keys{position:fixed;inset:0;z-index:2147483000;pointer-events:none;--vk-size:56px;--vk-gap:8px;--vk-alpha:.28;font-family:sans-serif;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
+    .pc2a-vk-cluster{position:absolute;display:grid;gap:var(--vk-gap);pointer-events:none}
+    .pc2a-vk-btn{width:var(--vk-size);height:var(--vk-size);border-radius:50%;border:1px solid rgba(255,255,255,.4);background:rgba(0,0,0,var(--vk-alpha));color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;pointer-events:auto;touch-action:none;box-sizing:border-box}
+    .pc2a-vk-btn.pc2a-vk-active{background:rgba(255,255,255,calc(var(--vk-alpha) + .3));color:#000}
+    #pc2a-vk-toggle{position:absolute;top:8px;right:8px;width:44px;height:38px;border-radius:10px;border:1px solid rgba(255,255,255,.4);background:rgba(0,0,0,var(--vk-alpha));color:#fff;pointer-events:auto;touch-action:none;font-size:10px}
+    #pc2a-vk-opacity{position:absolute;top:18px;right:60px;width:110px;pointer-events:auto;touch-action:none}
+    #pc2a-virtual-keys.pc2a-vk-hidden .pc2a-vk-cluster{display:none}
+  `;
+  function fire(type, def) {
+    const target = document.querySelector('canvas') || document.body || document.documentElement;
+    const event = new KeyboardEvent(type, {bubbles: true, cancelable: true, key: def.key, code: def.code});
+    Object.defineProperty(event, 'keyCode', {value: def.keyCode});
+    Object.defineProperty(event, 'which', {value: def.keyCode});
+    Object.defineProperty(event, 'charCode', {value: 0});
+    target.dispatchEvent(event);
+  }
+  function down(def) { if (!pressed.has(def.id)) { pressed.add(def.id); fire('keydown', def); } }
+  function up(def) { if (pressed.delete(def.id)) fire('keyup', def); }
+  function releaseAll() { [...pressed].forEach(id => up(byId[id])); }
+  function makeButton(def) {
+    const button = document.createElement('div');
+    button.className = 'pc2a-vk-btn';
+    button.textContent = def.label;
+    button.dataset.id = def.id;
+    button.addEventListener('pointerdown', event => {
+      event.preventDefault(); event.stopPropagation();
+      try { button.setPointerCapture(event.pointerId); } catch (_) {}
+      button.classList.add('pc2a-vk-active');
+      down(def);
+    });
+    ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(type => button.addEventListener(type, event => {
+      event.preventDefault(); event.stopPropagation();
+      button.classList.remove('pc2a-vk-active');
+      up(def);
+    }));
+    button.addEventListener('contextmenu', event => event.preventDefault());
+    return button;
+  }
+  function cluster() { const el = document.createElement('div'); el.className = 'pc2a-vk-cluster'; return el; }
+  function build() {
+    if (!document.body) { document.addEventListener('DOMContentLoaded', build, {once: true}); return; }
+    document.body.appendChild(style);
+    document.body.appendChild(root);
+    const dpad = cluster();
+    dpad.style.left = '16px'; dpad.style.bottom = '16px';
+    dpad.style.gridTemplateColumns = 'repeat(3, var(--vk-size))';
+    const layout = [null, 'up', null, 'left', null, 'right', null, 'down', null];
+    layout.forEach(id => {
+      if (id) dpad.appendChild(makeButton(byId[id]));
+      else { const spacer = document.createElement('div'); spacer.style.width = 'var(--vk-size)'; spacer.style.height = 'var(--vk-size)'; dpad.appendChild(spacer); }
+    });
+    const right = cluster();
+    right.style.right = '16px'; right.style.bottom = '16px';
+    right.style.gridTemplateColumns = 'repeat(3, var(--vk-size))';
+    const extras = keys.filter(k => k.group === 'extra');
+    const actions = keys.filter(k => k.group === 'action');
+    extras.concat(actions).forEach(def => right.appendChild(makeButton(def)));
+    const toggle = document.createElement('button');
+    toggle.id = 'pc2a-vk-toggle'; toggle.textContent = 'KEYS';
+    toggle.addEventListener('click', () => root.classList.toggle('pc2a-vk-hidden'));
+    const opacity = document.createElement('input');
+    opacity.id = 'pc2a-vk-opacity'; opacity.type = 'range'; opacity.min = '0.1'; opacity.max = '0.7'; opacity.step = '0.05';
+    try { opacity.value = localStorage.getItem('pc2a-vk-alpha') || '0.28'; } catch (_) { opacity.value = '0.28'; }
+    root.style.setProperty('--vk-alpha', opacity.value);
+    opacity.addEventListener('input', () => {
+      root.style.setProperty('--vk-alpha', opacity.value);
+      try { localStorage.setItem('pc2a-vk-alpha', opacity.value); } catch (_) {}
+    });
+    root.append(dpad, right, toggle, opacity);
+    window.addEventListener('blur', releaseAll);
+    document.addEventListener('visibilitychange', () => { if (document.hidden) releaseAll(); });
+  }
+  window.__pc2aVirtualKeys = {
+    root,
+    down(id) { if (byId[id]) down(byId[id]); },
+    up(id) { if (byId[id]) up(byId[id]); },
+    press(id) { if (byId[id]) { down(byId[id]); setTimeout(() => up(byId[id]), 60); } },
+    releaseAll
+  };
+  build();
+})();
+'''
+
+
+def build_virtual_keys_js(profile):
+    payload = json.dumps({'keys': profile['keys']}, ensure_ascii=False)
+    return VIRTUAL_KEYS_TEMPLATE.replace('__PROFILE_JSON__', payload)
+
+
+def fix_message_skip_conflicts(assets):
+    plugins_file = assets / 'js/plugins.js'
+    if not plugins_file.is_file():
+        return False
+    text = plugins_file.read_text(encoding='utf-8', errors='ignore')
+    if 'MessageSkip' not in text or 'mz3d' not in text:
+        return False
+    new_text, count = re.subn(r'"オートキー"\s*:\s*"A"', '"オートキー":"M"', text)
+    if not count:
+        new_text, count = re.subn(r'"AutoKey"\s*:\s*"A"', '"AutoKey":"M"', new_text)
+    if count:
+        plugins_file.write_text(new_text, encoding='utf-8')
+        record_remediation('remapped MessageSkip auto key A->M to avoid MZ3D movement conflict')
+        return True
+    return False
+
+
 def write_project(workdir, args, engine):
     app = workdir / 'app'
     (app / 'src/main/java/app/rpgmport').mkdir(parents=True, exist_ok=True)
     (app / 'src/main/assets').mkdir(parents=True, exist_ok=True)
     (app / 'src/main/res/drawable').mkdir(parents=True, exist_ok=True)
     entry = entry_path(app / 'src/main/assets', engine)
+    fix_message_skip_conflicts(app / 'src/main/assets')
+    profile = getattr(args, 'input_profile', None) or analyze_input_profile(app / 'src/main/assets', engine)
+    args.input_profile = profile
+    assets_dir = app / 'src/main/assets'
+    (assets_dir / 'input-profile.json').write_text(json.dumps(profile, ensure_ascii=False, indent=2), encoding='utf-8')
+    use_virtual_keys = profile['class'] == 'rich'
+    if use_virtual_keys:
+        (assets_dir / 'virtual-keys.js').write_text(build_virtual_keys_js(profile), encoding='utf-8')
     (app / 'src/main/java/app/rpgmport/MainActivity.java').write_text(
-        MAIN_ACTIVITY.replace('__GAME_ENTRY__', urllib.parse.quote(entry)).replace('__IS_ELECTRON__', 'true' if engine == 'electron' else 'false'), encoding='utf-8')
+        MAIN_ACTIVITY.replace('__GAME_ENTRY__', urllib.parse.quote(entry)).replace('__IS_ELECTRON__', 'true' if engine == 'electron' else 'false').replace('__USE_VIRTUAL_KEYS__', 'true' if use_virtual_keys else 'false'), encoding='utf-8')
     (app / 'src/main/assets/compat.js').write_text(
         COMPAT_JS + ('\n' + ELECTRON_BOOTSTRAP_JS if engine == 'electron' else ''), encoding='utf-8')
     if engine == 'electron':
@@ -1490,7 +1738,8 @@ def preflight_apk(args, apk, assets, report_dir, engine):
                 'failures': failures,
                 'remediation': list(REMEDIATION),
                 'cheat': getattr(args, 'cheat_summary', None),
-                'suggestions': suggestions
+                'suggestions': suggestions,
+                'inputProfile': getattr(args, 'input_profile', None)
             }
             report_path = report_dir / 'report.json'
             report_path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding='utf-8')
@@ -1512,7 +1761,8 @@ def preflight_apk(args, apk, assets, report_dir, engine):
                 'failures': [str(error)],
                 'remediation': list(REMEDIATION),
                 'cheat': getattr(args, 'cheat_summary', None),
-                'suggestions': []
+                'suggestions': [],
+                'inputProfile': getattr(args, 'input_profile', None)
             }
             report_path = report_dir / 'report.json'
             report_path.write_text(json.dumps(failure_report, ensure_ascii=False, indent=2), encoding='utf-8')
