@@ -1,22 +1,60 @@
 # game-pc2and
 
-**电脑游戏，一键变成安卓 APK。**  
-RPG Maker MV/MZ · NW.js · Electron · CrySirror 原生 VN · 自动环境 · 自动验证 · 虚拟键盘 · 可选作弊
+**把 PC 游戏一键打包成单个安卓 APK。**
+
+RPG Maker MV/MZ · NW.js · Electron · 视觉小说（KiriKiri/Siglus/RealLive/QLIE） · 自动环境 · 虚拟键盘 · 构建校验
 
 [![CI](https://github.com/SpellingDragon/game-pc2and/actions/workflows/ci.yml/badge.svg)](https://github.com/SpellingDragon/game-pc2and/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/SpellingDragon/game-pc2and?label=release)](https://github.com/SpellingDragon/game-pc2and/releases/latest)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-[English](README.en.md) · [下载最新版](https://github.com/SpellingDragon/game-pc2and/releases/latest) · [观看 21 秒演示](https://github.com/SpellingDragon/game-pc2and/releases/latest/download/game-pc2and-demo.mp4)
+[English](README.en.md) · [下载最新版](https://github.com/SpellingDragon/game-pc2and/releases/latest) · [观看 21 秒演示](https://github.com/SpellingDragon/game-pc2and/releases/latest/download/game-pc2and-demo.mp4) · [CrySirror QLIE 补丁 PR](https://github.com/xmoezzz/CrySirror/pull/21)
 
-![game-pc2and：电脑游戏一键变成安卓 APK](docs/images/hero.png)
+![game-pc2and：RPG Maker、Electron、KiriKiri、Siglus、RealLive、QLIE 一键打包安卓 APK](docs/images/hero.png)
+
+## 30 秒开始
+
+```bash
+python3 skills/pc2android/scripts/pc2android.py /path/to/game
+```
+
+自动识别引擎并输出单个 APK：
+
+- RPG Maker MV/MZ、NW.js、Electron → `<游戏名>-WebView.apk`
+- KiriKiri、Siglus、RealLive、QLIE 等 → `<游戏名>-CrySirror.apk`
+
+第一次运行自动安装缺失的 JDK、Android SDK、Gradle；CrySirror 路径还会准备 Rust 1.95、Android NDK 与 cargo-ndk。无需 Android Studio，无需 root。
+
+## 能打包什么
+
+| 你的游戏 | 引擎/格式 | 后端 | 状态 |
+|---|---|---|---|
+| RPG Maker MZ | `js/rmmz_core.js`、`www/` | WebView | 已验证 |
+| RPG Maker MV | `js/rpg_core.js`、`www/` | WebView | 已验证 |
+| NW.js 网页游戏 | `package.json` + `index.html` | WebView | 已验证 |
+| Electron（asar） | `app.asar` / `base.asar` | WebView | 已验证 |
+| 视觉小说 / ADV / galgame | KiriKiri、Siglus、RealLive、AVG32、BGI、SoftPAL、RFVP、NScripter、Circus、CatSystem2、QLIE、Majiro、AliceSoft System 4、System-NNN、SugarPot、codeX RScript、N-System、N2System、Malie、WillPlus/AdvHD、CMVS/CVNS、ExHibit、minori、CM3D2/COM3D2、AmanatsuLocation | CrySirror 原生后端 | 按引擎验证 |
+| 其他 Windows 原生引擎 | 未列出的 Win32 引擎 | 不适用 | 建议 Winlator |
+
+CrySirror 后端覆盖的引擎由文件签名自动识别；识别不到时可用 `--engine crysirror` 显式指定。
+
+## 能力
+
+- **单 APK**：游戏、运行时、虚拟键盘/宿主、许可证打进一个安装包。
+- **自动环境**：JDK 17、Android platform/build-tools、Gradle、Chrome for Testing、Python 依赖自动安装并校验。
+- **CrySirror 原生后端**：VN 引擎走 Rust 原生运行时，不再套 WebView；与 WebView 并列维护。
+- **虚拟键盘**：MZ3D 等连续输入游戏自动注入半透明键盘，支持隐藏、透明度和多指。
+- **可选作弊**：RPG Maker 物品价格取负、敌人经验最高位前加 1；自定义 Electron 的 `window.__GAME_DATA__` 递归修改。
+- **构建校验**：签名、对齐、CRC、APK 内资源完整性；WebView 路径额外做 Chromium 预检。
+- **Agent Skill**：复制 `skills/pc2android` 即可挂载为 Agent Skill。
 
 ## 演示
 
-![打包与运行演示](docs/images/demo-preview.gif)
+![RPG Maker/Electron 游戏打包安卓 APK 演示](docs/images/demo-preview.gif)
 
-[完整演示视频（真实构建日志、虚拟键盘、实际游玩操作与预检报告）](https://github.com/SpellingDragon/game-pc2and/releases/latest/download/game-pc2and-demo.mp4)
+[完整演示视频（构建日志、虚拟键盘、实际游玩、预检报告）](https://github.com/SpellingDragon/game-pc2and/releases/latest/download/game-pc2and-demo.mp4)
 
-当前视频为 APK 桌面预检运行画面。手机开启 USB 调试并连接后，可录制实机片段：
+手机开启 USB 调试并连接后，可录制实机片段：
 
 ```bash
 bash docs/device-demo.sh /path/to/Game-WebView.apk
@@ -24,9 +62,7 @@ bash docs/device-demo.sh /path/to/Game-WebView.apk
 
 脚本会安装并启动 APK、录制屏幕、拉回 `device-demo.mp4`。
 
-## 使用
-
-### 作为 Agent Skill
+## 作为 Agent Skill
 
 ```bash
 git clone https://github.com/SpellingDragon/game-pc2and.git
@@ -41,45 +77,20 @@ cd game-pc2and
 
 不同 Agent 的 skills 目录位置不同，按其文档挂载同一目录即可。
 
-### 直接运行
-
-```bash
-python3 skills/pc2android/scripts/pc2android.py /path/to/game
-```
-
-第一次运行会自动安装缺失的 JDK、Android SDK 组件、Gradle、Chrome for Testing 与 Python 依赖，需要联网和几 GB 磁盘空间。
-
-输出在当前目录：
-
-```text
-<游戏名>-WebView.apk
-<游戏名>-CrySirror.apk（CrySirror 原生 VN 后端）
-<游戏名>-preflight/report.json
-<游戏名>-preflight/title.png / map.png
-```
-
-退出码 0 才会输出 APK；失败时查看 `report.json` 的 `failures`、`suggestions`、`cheat.candidates` 与 `remediation`。
-
-## 支持的引擎
-
-| 类型 | 状态 |
-|---|---|
-| RPG Maker MZ | 已验证 |
-| RPG Maker MV | 已验证 |
-| NW.js 网页游戏 | 已验证 |
-| Electron（asar） | 已验证 |
-| CrySirror 原生 VN 引擎（KiriKiri、Siglus、RealLive 等） | 原生后端，按引擎验证；首次运行自动准备 Rust/NDK |
-| 其他 Windows 原生引擎 | 建议 Winlator |
-
 ## CrySirror 原生后端
 
-使用方式不变：
+命令不变：
 
 ```bash
 python3 skills/pc2android/scripts/pc2android.py /path/to/game
 ```
 
-按 CrySirror 支持列表自动识别 KiriKiri、Siglus、RealLive、AVG32、BGI、SoftPAL、RFVP、NScripter、Circus、CatSystem2、QLIE、Majiro、AliceSoft System 4、System-NNN、SugarPot、codeX RScript、N-System、N2System、Malie、WillPlus/AdvHD、CMVS/CVNS、ExHibit、minori、CM3D2/COM3D2、AmanatsuLocation 等引擎，首次运行自动准备 CrySirror 源码、Rust 1.95、Android NDK 与 Gradle 9.1，生成单游戏 APK。运行时使用 game-pc2and 自有的最小宿主（横屏全屏、Surface、输入、生命周期），只消费 `libcrysirror_mobile.so`，不修改上游 `platform/android`。首次运行需要 git、rustup、curl，下载量较大；原生运行时不走 Chromium 预检，需实机验证。
+自动识别 CrySirror 支持的引擎：KiriKiri、Siglus、RealLive、AVG32、BGI、SoftPAL、RFVP、NScripter、Circus、CatSystem2、QLIE、Majiro、AliceSoft System 4、System-NNN、SugarPot、codeX RScript、N-System、N2System、Malie、WillPlus/AdvHD、CMVS/CVNS、ExHibit、minori、CM3D2/COM3D2、AmanatsuLocation。
+
+- 引擎与宿主解耦：只消费 `libcrysirror_mobile.so`，Android 宿主由 game-pc2and 自己维护（横屏全屏、Surface、输入、生命周期），不修改上游 `platform/android`。
+- 首次运行自动准备 CrySirror 源码、Rust 1.95、Android NDK、Gradle 9.1。
+- APK 内附 MPL-2.0 许可证、源码 commit/修改说明、依赖许可证清单和可获取的许可证文本。
+- 原生运行时不走 Chromium 预检，需实机验证；兼容性按引擎/游戏分别确认。
 
 ## 触屏与作弊
 
@@ -94,9 +105,18 @@ python3 skills/pc2android/scripts/pc2android.py /path/to/game --cheat
 - 暴露 `window.__GAME_DATA__` 的自定义 Electron 引擎：递归修改其中的 `price`。
 - 只改暂存副本，源游戏文件不动；数量写入 `report.json` 的 `cheat` 字段。
 
-## 技术
+## 工作流与验证
 
-识别引擎与入口 → WebView 或 CrySirror 原生后端 → 单 APK → 构建校验 → WebView 预检/输入画像。
+```text
+识别引擎与入口
+  → WebView：HTML5 / RPG Maker / NW.js / Electron
+  → CrySirror：VN 引擎原生运行时
+  → 单 APK
+  → 签名 / 对齐 / CRC / 资源完整性
+  → WebView 预检 / 输入画像
+```
+
+退出码 0 才会输出 APK；失败时查看 `report.json` 的 `failures`、`suggestions`、`cheat.candidates` 与 `remediation`。
 
 <details>
 <summary>高级参数与故障排查</summary>
@@ -122,10 +142,14 @@ python3 skills/pc2android/scripts/pc2android.py \
 
 ## 常见问题
 
-**需要 root 吗？** 不需要。  
-**需要 Android Studio 吗？** 不需要，SDK 组件会自动安装。  
-**所有 PC 游戏都能转吗？** HTML5 / RPG Maker / NW.js / Electron 走 WebView；CrySirror 支持的 VN 引擎走原生后端；其余 Windows 原生引擎建议 Winlator。
-**游戏资源会进仓库吗？** 不会，请只打包你拥有或已获授权的游戏。  
+**RPG Maker MV/MZ 能转安卓吗？** 能。`www/` 或 `data_Win/` 直接打包，自动处理 MZ3D、MessageSkip 等输入兼容。
+**Electron / NW.js 游戏能打包成 APK 吗？** 能。支持 `app.asar` / `base.asar` 和 `package.json` + `index.html` 两种布局。
+**KiriKiri、Siglus、RealLive、QLIE 能在安卓运行吗？** 走 CrySirror 原生后端，按引擎/游戏验证；不是所有 VN 都保证完整可玩。
+**需要 Android Studio 吗？** 不需要，SDK 组件自动安装。
+**需要 root 吗？** 不需要。
+**所有 PC 游戏都能转吗？** 不能。HTML5/RPG Maker/NW.js/Electron 走 WebView；CrySirror 支持的 VN 引擎走原生后端；其他 Windows 原生引擎建议 Winlator。
+**游戏资源会进仓库吗？** 不会，请只打包你拥有或已获授权的游戏。
+**APK 是 release 签名吗？** 当前构建为 debug 签名；正式分发请配置 release 签名。
 **虚拟键盘会自动代打吗？** 不会，它只把触摸转成游戏按键。
 
 ## License
