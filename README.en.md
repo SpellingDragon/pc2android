@@ -6,7 +6,7 @@ RPG Maker MV/MZ · NW.js · Electron · automatic setup · verification · virtu
 [![CI](https://github.com/SpellingDragon/game-pc2and/actions/workflows/ci.yml/badge.svg)](https://github.com/SpellingDragon/game-pc2and/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-[中文](README.md) · [Latest release](https://github.com/SpellingDragon/game-pc2and/releases/latest) · [Watch the 26-second demo](https://github.com/SpellingDragon/game-pc2and/releases/latest/download/game-pc2and-demo.mp4)
+[中文](README.md) · [Latest release](https://github.com/SpellingDragon/game-pc2and/releases/latest) · [Watch the 21-second demo](https://github.com/SpellingDragon/game-pc2and/releases/latest/download/game-pc2and-demo.mp4)
 
 ![game-pc2and hero](docs/images/hero.png)
 
@@ -14,7 +14,7 @@ RPG Maker MV/MZ · NW.js · Electron · automatic setup · verification · virtu
 
 ![Build and gameplay demo](docs/images/demo-preview.gif)
 
-[Full demo video (real build logs, virtual keyboard, 3D camera and verification report)](https://github.com/SpellingDragon/game-pc2and/releases/latest/download/game-pc2and-demo.mp4)
+[Full demo video (real build logs, virtual keyboard, real gameplay actions and verification report)](https://github.com/SpellingDragon/game-pc2and/releases/latest/download/game-pc2and-demo.mp4)
 
 The current video shows the APK running in the desktop preflight. With a USB-debug-enabled phone connected, record a device clip with:
 

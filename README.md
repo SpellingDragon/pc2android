@@ -6,7 +6,7 @@ RPG Maker MV/MZ · NW.js · Electron · 自动环境 · 自动验证 · 虚拟�
 [![CI](https://github.com/SpellingDragon/game-pc2and/actions/workflows/ci.yml/badge.svg)](https://github.com/SpellingDragon/game-pc2and/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-[English](README.en.md) · [下载最新版](https://github.com/SpellingDragon/game-pc2and/releases/latest) · [观看 26 秒演示](https://github.com/SpellingDragon/game-pc2and/releases/latest/download/game-pc2and-demo.mp4)
+[English](README.en.md) · [下载最新版](https://github.com/SpellingDragon/game-pc2and/releases/latest) · [观看 21 秒演示](https://github.com/SpellingDragon/game-pc2and/releases/latest/download/game-pc2and-demo.mp4)
 
 ![game-pc2and：电脑游戏一键变成安卓 APK](docs/images/hero.png)
 
@@ -14,7 +14,7 @@ RPG Maker MV/MZ · NW.js · Electron · 自动环境 · 自动验证 · 虚拟�
 
 ![打包与运行演示](docs/images/demo-preview.gif)
 
-[完整演示视频（真实构建日志、虚拟键盘、3D 镜头与预检报告）](https://github.com/SpellingDragon/game-pc2and/releases/latest/download/game-pc2and-demo.mp4)
+[完整演示视频（真实构建日志、虚拟键盘、实际游玩操作与预检报告）](https://github.com/SpellingDragon/game-pc2and/releases/latest/download/game-pc2and-demo.mp4)
 
 当前视频为 APK 桌面预检运行画面。手机开启 USB 调试并连接后，可录制实机片段：
 
