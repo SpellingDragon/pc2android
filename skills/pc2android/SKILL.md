@@ -44,7 +44,7 @@ python3 <skill-dir>/scripts/pc2android.py <project-path> --cheat
 
 ## 作弊选项（可选）
 
-RPG Maker MV/MZ 走通用标准数据文件；自定义 Electron 引擎（如苦甜终幕）走 `window.__GAME_DATA__` 的定制适配。
+RPG Maker MV/MZ 走通用标准数据文件；自定义 Electron 引擎（暴露 `window.__GAME_DATA__`）走定制适配。
 
 - `data/Items.json`：`price > 0` 取负；`price == 0` 改为 `-0`；已是负数不变。
 - `data/Enemies.json`：`exp != 0` 时在最高位前加 `1`（50→150，5→15，100→1100）；`exp == 0` 不变。
@@ -57,8 +57,8 @@ RPG Maker MV/MZ 走通用标准数据文件；自定义 Electron 引擎（如苦
 
 打包时生成 `input-profile.json`：
 
-- `touch`：菜单/ADV/回合制或已有触屏按钮覆盖（如监狱勇者、苦甜终幕），不叠加控件。
-- `rich`：存在 MZ3D/指针锁定等连续输入，或自定义按键较多且无触屏覆盖（如影堕），APK 注入半透明虚拟键盘。
+- `touch`：菜单/ADV/回合制或已有触屏按钮覆盖的游戏，不叠加控件。
+- `rich`：存在 MZ3D/指针锁定等连续输入，或自定义按键较多且无触屏覆盖的游戏，APK 注入半透明虚拟键盘。
 
 若 MZ3D 与 MessageSkip 同时存在，打包会把 MessageSkip 自动键从 A 改为 M，避免 A 被 MZ3D 的移动映射占用（写入 `remediation`）。
 

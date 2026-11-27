@@ -2014,7 +2014,7 @@ def patch_price_tree(value):
     return count
 
 
-def patch_bitter_gamedata(assets):
+def patch_gamedata_prices(assets):
     count = 0
     for path in assets.rglob('GameData.js'):
         try:
@@ -2051,7 +2051,7 @@ def apply_cheats(assets):
         seen.add(root)
         items += patch_rpgm_json(root / 'Items.json', patch_item_prices)
         enemies += patch_rpgm_json(root / 'Enemies.json', patch_enemy_exp)
-    items += patch_bitter_gamedata(assets)
+    items += patch_gamedata_prices(assets)
     summary = {'items': items, 'enemies': enemies, 'candidates': []}
     if items or enemies:
         print(f'Cheat: negated {items} item price(s), boosted {enemies} enemy exp value(s)', flush=True)

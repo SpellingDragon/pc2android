@@ -71,7 +71,7 @@ python3 skills/pc2android/scripts/pc2android.py /path/to/game --cheat
 ```
 
 - RPG Maker: positive `price` becomes negative, `price == 0` becomes `-0`; nonzero enemy `exp` gets a leading `1`.
-- Custom Electron engines such as Bitter Sweets Endroll: recursively patch `price` in `window.__GAME_DATA__`.
+- Custom Electron engines exposing `window.__GAME_DATA__`: recursively patch `price` values.
 - Only staged data is changed; source game files are untouched. Counts are written to `report.json` under `cheat`.
 
 ## Technology

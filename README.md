@@ -71,7 +71,7 @@ python3 skills/pc2android/scripts/pc2android.py /path/to/game --cheat
 ```
 
 - RPG Maker：物品 `price > 0` 取负，`price == 0` 变 `-0`；敌人 `exp != 0` 时最高位前加 `1`。
-- 苦甜终幕等自定义 Electron 引擎：递归修改 `window.__GAME_DATA__` 里的 `price`。
+- 暴露 `window.__GAME_DATA__` 的自定义 Electron 引擎：递归修改其中的 `price`。
 - 只改暂存副本，源游戏文件不动；数量写入 `report.json` 的 `cheat` 字段。
 
 ## 技术
