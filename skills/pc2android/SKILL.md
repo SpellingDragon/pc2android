@@ -4,7 +4,7 @@ description: 将 PC 上的 HTML5 / RPG Maker MV/MZ（NW.js）/ Electron 游戏�
 license: MIT
 metadata:
   author: SpellingDragon
-  version: "1.4.0"
+  version: "1.5.0"
 ---
 
 # pc2android
@@ -50,7 +50,7 @@ python3 <skill-dir>/scripts/pc2android.py <project-path> --cheat
 python3 <skill-dir>/scripts/pc2android.py /path/to/game
 ```
 
-自动识别 XP3、GameData/*.pack、Gameexe、RealLive、NScripter、Majiro、CatSystem2 等 VN 引擎；首次运行自动准备 CrySirror 源码、Rust 1.95、Android NDK 与 Gradle 9.1，生成 `<name>-CrySirror.apk`。宿主使用 game-pc2and 自有的最小 Activity/Surface 模板，只消费 `libcrysirror_mobile.so`，不复制或修改上游 `platform/android`。需要 git、rustup、curl；首次运行下载量较大。原生运行时不走 Chromium 预检，APK 构建/签名/CRC 通过后退出码为 0；游戏是否完整可玩需实机验证。CrySirror 与 WebView 是并列的后端，按引擎/游戏分别验证。
+按 CrySirror 支持列表自动识别 KiriKiri、Siglus、RealLive、AVG32、BGI、SoftPAL、RFVP、NScripter、Circus、CatSystem2、QLIE、Majiro、AliceSoft System 4、System-NNN、SugarPot、codeX RScript、N-System、N2System、Malie、WillPlus/AdvHD、CMVS/CVNS、ExHibit、minori、CM3D2/COM3D2、AmanatsuLocation 等引擎；首次运行自动准备 CrySirror 源码、Rust 1.95、Android NDK 与 Gradle 9.1，生成 `<name>-CrySirror.apk`。依赖许可证清单和可获取的许可证文本随 APK 放在 `assets/licenses/`。宿主使用 game-pc2and 自有的最小 Activity/Surface 模板，只消费 `libcrysirror_mobile.so`，不复制或修改上游 `platform/android`。需要 git、rustup、curl；首次运行下载量较大。原生运行时不走 Chromium 预检，APK 构建/签名/CRC 通过后退出码为 0；游戏是否完整可玩需实机验证。CrySirror 与 WebView 是并列的后端，按引擎/游戏分别验证。
 
 ## 作弊选项（可选）
 

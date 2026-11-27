@@ -79,7 +79,7 @@ python3 skills/pc2android/scripts/pc2android.py /path/to/game
 python3 skills/pc2android/scripts/pc2android.py /path/to/game
 ```
 
-自动识别 XP3、GameData/*.pack、Gameexe、RealLive、NScripter、Majiro、CatSystem2 等 VN 引擎，首次运行自动准备 CrySirror 源码、Rust 1.95、Android NDK 与 Gradle 9.1，生成单游戏 APK。运行时使用 game-pc2and 自有的最小宿主（横屏全屏、Surface、输入、生命周期），只消费 `libcrysirror_mobile.so`，不修改上游 `platform/android`。首次运行需要 git、rustup、curl，下载量较大；原生运行时不走 Chromium 预检，需实机验证。
+按 CrySirror 支持列表自动识别 KiriKiri、Siglus、RealLive、AVG32、BGI、SoftPAL、RFVP、NScripter、Circus、CatSystem2、QLIE、Majiro、AliceSoft System 4、System-NNN、SugarPot、codeX RScript、N-System、N2System、Malie、WillPlus/AdvHD、CMVS/CVNS、ExHibit、minori、CM3D2/COM3D2、AmanatsuLocation 等引擎，首次运行自动准备 CrySirror 源码、Rust 1.95、Android NDK 与 Gradle 9.1，生成单游戏 APK。运行时使用 game-pc2and 自有的最小宿主（横屏全屏、Surface、输入、生命周期），只消费 `libcrysirror_mobile.so`，不修改上游 `platform/android`。首次运行需要 git、rustup、curl，下载量较大；原生运行时不走 Chromium 预检，需实机验证。
 
 ## 触屏与作弊
 
@@ -130,6 +130,6 @@ python3 skills/pc2android/scripts/pc2android.py \
 
 ## License
 
-MIT，见 [LICENSE](LICENSE)。CrySirror 组件为 MPL-2.0，源码 commit、修改说明和许可证随 APK 放在 `assets/licenses/`；第三方致谢见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+MIT，见 [LICENSE](LICENSE)。CrySirror 组件为 MPL-2.0，源码 commit、修改说明、依赖许可证清单和可获取的许可证文本随 APK 放在 `assets/licenses/`；第三方致谢见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 
 RPG Maker 是 Gotcha Gotcha Games 的商标；Android 是 Google LLC 的商标。本项目与上述组织无关联。

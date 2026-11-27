@@ -79,7 +79,7 @@ The command stays the same:
 python3 skills/pc2android/scripts/pc2android.py /path/to/game
 ```
 
-It auto-detects XP3, GameData/*.pack, Gameexe, RealLive, NScripter, Majiro and CatSystem2 data. The first run prepares the CrySirror source, Rust 1.95, Android NDK and Gradle 9.1, then builds a single-game APK. The runtime uses a game-pc2and-owned minimal host (landscape fullscreen, Surface, input, lifecycle) and consumes only `libcrysirror_mobile.so`; upstream `platform/android` is not modified. The first run needs git, rustup and curl and downloads a lot; the native runtime does not use the Chromium preflight and needs device validation.
+It auto-detects the CrySirror-supported engines: KiriKiri, Siglus, RealLive, AVG32, BGI, SoftPAL, RFVP, NScripter, Circus, CatSystem2, QLIE, Majiro, AliceSoft System 4, System-NNN, SugarPot, codeX RScript, N-System, N2System, Malie, WillPlus/AdvHD, CMVS/CVNS, ExHibit, minori and CM3D2/COM3D2 and AmanatsuLocation. The first run prepares the CrySirror source, Rust 1.95, Android NDK and Gradle 9.1, then builds a single-game APK. The runtime uses a game-pc2and-owned minimal host (landscape fullscreen, Surface, input, lifecycle) and consumes only `libcrysirror_mobile.so`; upstream `platform/android` is not modified. The first run needs git, rustup and curl and downloads a lot; the native runtime does not use the Chromium preflight and needs device validation.
 
 ## Touch controls and cheats
 
@@ -130,6 +130,6 @@ For download errors, check `HTTPS_PROXY` and curl, then rerun.
 
 ## License
 
-MIT, see [LICENSE](LICENSE). CrySirror components are MPL-2.0; the source commit, modification notice and license are included in the APK under `assets/licenses/`. Third-party notices: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+MIT, see [LICENSE](LICENSE). CrySirror components are MPL-2.0; the source commit, modification notice, dependency license inventory and available license texts are included in the APK under `assets/licenses/`. Third-party notices: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 RPG Maker is a trademark of Gotcha Gotcha Games Corporation. Android is a trademark of Google LLC. This project is not affiliated with or endorsed by them.

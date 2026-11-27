@@ -556,22 +556,49 @@ def game_root(source):
 
 def detect_crysirror_engine(source):
     root = game_root(source)
-    if any(root.glob('*.xp3')):
-        return 'crysirror'
-    if (root / 'GameData').is_dir() and any((root / 'GameData').glob('data*.pack')):
-        return 'crysirror'
-    if (root / 'DLL/wuvorbis.dll').is_file() or (root / 'DLL/TheoraLib.dll').is_file():
-        return 'crysirror'
-    if (root / 'Gameexe.dat').is_file():
-        return 'crysirror'
-    if (root / 'Gameexe.ini').is_file() and (root / 'Seen.txt').is_file():
-        return 'crysirror'
-    if (root / 'nscript.dat').is_file():
-        return 'crysirror'
-    if any(root.glob('*.mjo')) and any(root.glob('*.arc')):
-        return 'crysirror'
-    if any(root.glob('*.int')) and any(root.glob('*.cst')):
-        return 'crysirror'
+
+    def has(name):
+        return (root / name).is_file()
+
+    def has_any(pattern):
+        return any(root.glob(pattern))
+
+    signatures = [
+        ('KiriKiri', has_any('*.xp3')),
+        ('QLIE', ((root / 'GameData').is_dir() and any((root / 'GameData').glob('data*.pack')))
+            or has('system/etc/game.dat')),
+        ('Siglus', has('Gameexe.dat') or (has('Gameexe.ini') and has('Scene.pck'))),
+        ('RealLive', has('Gameexe.ini') and has('Seen.txt')),
+        ('AVG32', has_any('*.pdt') and has('SAVE.INI')),
+        ('BGI/Ethornell', has('system.arc') or ((root / 'Install').is_dir() and any((root / 'Install').rglob('*.arc')))),
+        ('SoftPAL', has('archive.dat') and has('Script.src')),
+        ('RFVP', has_any('*.hcb')),
+        ('NScripter', has('nscript.dat') or (has('0.txt') and has_any('*.nsa'))),
+        ('Circus', has_any('*.crxg') or has_any('*.xpcm')),
+        ('CatSystem2', has_any('*.int') and has_any('*.cst')),
+        ('Majiro', has('start.mjo') or (has_any('*.mjo') and has_any('*.arc'))),
+        ('AliceSoft System 4', has('System40.ini') or has('AliceStart.ini')),
+        ('System-NNN', has('spt/sys.spt') or has('init2/game.fxf')),
+        ('SugarPot', has('start.scr') and has('title.scr')),
+        ('codeX RScript', has('APINI') and (has_any('*.gsc') or has_any('*.lwg'))),
+        ('N-System', has('start.msd') and (has_any('*.mgd') or has_any('*.fjsys'))),
+        ('N2System', has('nss.npa') and has('system.npa')),
+        ('Malie', has('malie.ini') and has('data1.dat')),
+        ('WillPlus/AdvHD', has_any('*.ws2') and has_any('*.arc')),
+        ('CMVS', has('cmvs.cfg') or has('cvns.cfg') or has('cmvs.exe') or has('cvns.exe')),
+        ('ExHibit', has('ExHIBIT.ini')),
+        ('minori', has('scr.paz')),
+        ('CVNS', has('cvns.cfg') and (has_any('*.pss0') or has_any('*.cpz1'))),
+        ('CM3D2', (root / 'CM3D2x64_Data').is_dir() and (root / 'GameData').is_dir()
+            and any((root / 'GameData').glob('*.arc'))),
+        ('COM3D2', (root / 'COM3D2x64_Data/globalgamemanagers').is_file() and has('paths.dat')),
+        ('AmanatsuLocation', (root / 'AmanatsuLocation_Data').is_dir() and (root / 'lib').is_dir()
+            and has('GameAssembly.dll') and (root / 'AmanatsuLocation_Data/globalgamemanagers').is_file()),
+        ('KiriKiri plugins', has('DLL/wuvorbis.dll') or has('DLL/TheoraLib.dll')),
+    ]
+    for _, matched in signatures:
+        if matched:
+            return 'crysirror'
     return None
 
 
@@ -1494,6 +1521,65 @@ def build_crysirror_native(args, toolchain, workdir, abi):
     return output
 
 
+def write_crysirror_dependency_licenses(source, licenses, abi):
+    target = {'arm64-v8a': 'aarch64-linux-android', 'x86_64': 'x86_64-linux-android'}[abi]
+    env = os.environ.copy()
+    env['PATH'] = str(Path.home() / '.cargo/bin') + os.pathsep + env.get('PATH', '')
+    command = ['cargo', 'tree', '--manifest-path', str(Path(source) / 'Cargo.toml'),
+               '-p', 'crysirror-mobile', '--target', target, '-e', 'normal,build',
+               '--prefix', 'none', '--format', '{p}|{l}']
+    if shutil.which('rustup'):
+        command = ['rustup', 'run', '1.95.0'] + command
+    try:
+        result = subprocess.run(command, cwd=source, env=env, text=True,
+                                stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=300)
+        if result.returncode != 0:
+            raise RuntimeError(result.stderr.strip()[-1000:])
+        lines = sorted({line.strip() for line in result.stdout.splitlines() if '|' in line})
+        body = '\n'.join(lines) or 'No dependencies reported.'
+        text = ('CrySirror mobile dependency licenses\n'
+                f'Target: {target}\n'
+                'Format: package|license\n'
+                'Full license texts remain in the corresponding source packages.\n\n' + body + '\n')
+    except Exception as error:
+        text = ('CrySirror mobile dependency licenses\n'
+                f'Target: {target}\n'
+                f'Dependency scan unavailable: {error}\n')
+        record_remediation(f'CrySirror dependency license scan unavailable: {error}')
+    (licenses / 'CRYIRROR-DEPENDENCIES.txt').write_text(text, encoding='utf-8')
+    deps = licenses / 'dependencies'
+    deps.mkdir(parents=True, exist_ok=True)
+    metadata_command = ['cargo', 'metadata', '--format-version', '1', '--locked',
+                        '--manifest-path', str(Path(source) / 'Cargo.toml')]
+    if shutil.which('rustup'):
+        metadata_command = ['rustup', 'run', '1.95.0'] + metadata_command
+    try:
+        metadata = json.loads(subprocess.check_output(
+            metadata_command, cwd=source, env=env, text=True, stderr=subprocess.DEVNULL, timeout=300
+        ))
+        copied = 0
+        for package in metadata.get('packages', []):
+            license_file = package.get('license_file')
+            if not license_file:
+                continue
+            source_license = (Path(package['manifest_path']).parent / license_file).resolve()
+            if not source_license.is_file() or source_license.stat().st_size > 2 * 1024 * 1024:
+                continue
+            destination = deps / f"{package['name']}-{package['version']}-{source_license.name}"
+            if not destination.exists():
+                shutil.copy2(source_license, destination)
+                copied += 1
+        (deps / 'README.txt').write_text(
+            'License texts copied from the Cargo metadata package set.\n'
+            f'Copied {copied} license file(s).\n', encoding='utf-8'
+        )
+    except Exception as error:
+        record_remediation(f'CrySirror dependency license text copy unavailable: {error}')
+        (deps / 'README.txt').write_text(
+            f'License text copy unavailable: {error}\n', encoding='utf-8'
+        )
+
+
 def write_crysirror_source_notice(source, licenses):
     def git(*args):
         try:
@@ -1579,6 +1665,7 @@ def prepare_crysirror_project(args, toolchain, workdir, jni):
             shutil.copy2(notice, licenses / name)
             break
     write_crysirror_source_notice(toolchain['source'], licenses)
+    write_crysirror_dependency_licenses(toolchain['source'], licenses, abi)
     project_notices = Path(__file__).resolve().parents[3] / 'THIRD_PARTY_NOTICES.md'
     if project_notices.is_file():
         shutil.copy2(project_notices, licenses / 'THIRD_PARTY_NOTICES.txt')
@@ -1621,6 +1708,9 @@ def verify_crysirror_apk(args, apk, abi):
                 raise RuntimeError(f'CrySirror APK is missing lib/{abi}/{library}')
         if not any(name.startswith('assets/game/') for name in names):
             raise RuntimeError('CrySirror APK is missing bundled game data')
+        for notice in ('CRYIRROR-SOURCE.txt', 'CRYIRROR-DEPENDENCIES.txt', 'CrySirror-MPL-2.0.txt'):
+            if f'assets/licenses/{notice}' not in names:
+                raise RuntimeError(f'CrySirror APK is missing license notice: {notice}')
 
 
 def run_crysirror_pipeline(args):
