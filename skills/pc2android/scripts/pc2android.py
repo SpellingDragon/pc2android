@@ -603,7 +603,7 @@ def find_crysirror_source(explicit=None):
         if not candidate:
             continue
         path = candidate.resolve()
-        if (path / 'platform/android/app/build.gradle.kts').is_file() and (path / 'tools/package_platform.py').is_file():
+        if (path / 'crates/crysirror-mobile').is_dir() and (path / 'Cargo.toml').is_file():
             return path
     raise RuntimeError(
         'CrySirror source not found. Clone https://github.com/xmoezzz/CrySirror.git '
@@ -1456,76 +1456,6 @@ dependencies {{
     write_launcher_icons(app, candidates)
 
 
-def replace_once(text, old, new):
-    if old not in text:
-        raise RuntimeError(f'CrySirror patch target not found: {old[:80]}')
-    return text.replace(old, new, 1)
-
-
-def kotlin_string(value):
-    return '"' + str(value).replace('\\', '\\\\').replace('"', '\\"') + '"'
-
-
-def patch_crysirror_activity(text):
-    text = replace_once(text, '    private boolean importing;\n', '    private boolean importing;\n    private boolean bundledAutoPlay;\n    private String bundledError;\n')
-    text = replace_once(text, '        game=getPreferences(0).getString("game",null);\n', '''        game=getPreferences(0).getString("game",null);
-        try {
-            if(getAssets().list("game").length>0) prepareBundledGame();
-        } catch(Exception e) {
-            bundledError="Bundled game unavailable: "+e.getMessage();
-        }
-''')
-    text = replace_once(text, '    void library() {\n', '''    private boolean prepareBundledGame() {
-        File target=new File(getFilesDir(),"games/bundled");
-        try {
-            if(!target.isDirectory() || target.list()==null || target.list().length==0) copyAssetTree("game",target);
-            game=target.getAbsolutePath();
-            getPreferences(0).edit().putString("game",game).apply();
-            bundledAutoPlay=true;
-            return true;
-        } catch(Exception e) {
-            bundledError="Bundled game copy failed: "+e.getMessage();
-            return false;
-        }
-    }
-    private void copyAssetTree(String path, File target) throws IOException {
-        android.content.res.AssetManager assets=getAssets();
-        try(InputStream in=assets.open(path)) {
-            try(OutputStream out=new FileOutputStream(target)) {
-                byte[] buffer=new byte[131072];
-                int count;
-                while((count=in.read(buffer))!=-1) out.write(buffer,0,count);
-            }
-            return;
-        } catch(FileNotFoundException notAFile) {
-            // Directory entry; recurse below.
-        }
-        if(!target.isDirectory() && !target.mkdirs()) throw new IOException("Create "+target);
-        String[] children=assets.list(path);
-        if(children==null) throw new IOException("Read "+path);
-        for(String child:children) copyAssetTree(path+"/"+child,new File(target,child));
-    }
-    private boolean isBundledGame() {
-        return game!=null && new File(game).getName().equals("bundled");
-    }
-    void library() {
-''')
-    text = replace_once(text, '        TextView title=new TextView(this);title.setText("CrySirror");title.setTextSize(30);root.addView(title);\n', '        TextView title=new TextView(this);title.setText(getString(org.crysirror.player.R.string.app_name));title.setTextSize(30);root.addView(title);\n')
-    text = replace_once(text, '        status=new TextView(this);status.setText("Choose a game folder to import into application storage.");root.addView(status);\n', '        status=new TextView(this);status.setText(isBundledGame() ? "Bundled game ready." : "Choose a game folder to import into application storage.");root.addView(status);\n')
-    text = replace_once(text, '''        importButton=button(root,"Import game folder…",()->startActivityForResult(new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION),1));
-        importButton.setEnabled(!importing);
-''', '''        if(!isBundledGame()) {
-            importButton=button(root,"Import game folder…",()->startActivityForResult(new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION),1));
-            importButton.setEnabled(!importing);
-        }
-''')
-    text = replace_once(text, '        if(game!=null) probe(play,game);\n', '        if(game!=null) probe(play,game);\n        if(bundledError!=null) status.setText(bundledError);\n')
-    text = replace_once(text, '                status.setText(info.optString("title")+" · "+info.optString("engine"));play.setEnabled(!importing);\n', '''                status.setText(info.optString("title")+" · "+info.optString("engine"));play.setEnabled(!importing);
-                if(bundledAutoPlay) {bundledAutoPlay=false;play();}
-''')
-    return text
-
-
 def build_crysirror_native(args, toolchain, workdir, abi):
     output = workdir / 'jniLibs'
     shutil.rmtree(output, ignore_errors=True)
@@ -1566,40 +1496,20 @@ def build_crysirror_native(args, toolchain, workdir, abi):
 
 def prepare_crysirror_project(args, toolchain, workdir, jni):
     abi = getattr(args, 'crysirror_abi', 'arm64-v8a')
+    template = Path(__file__).resolve().parent.parent / 'templates/crysirror-host'
+    if not template.is_dir():
+        raise RuntimeError(f'CrySirror host template not found: {template}')
     project = workdir / 'crysirror-android'
     shutil.rmtree(project, ignore_errors=True)
-    shutil.copytree(
-        toolchain['source'] / 'platform/android', project,
-        ignore=shutil.ignore_patterns('.gradle', 'build', 'local.properties', '.DS_Store')
-    )
+    shutil.copytree(template, project)
     app = project / 'app'
     gradle = app / 'build.gradle.kts'
     text = gradle.read_text(encoding='utf-8')
-    text = replace_once(text, 'applicationId = "org.crysirror.player"', f'applicationId = {kotlin_string(args.application_id)}')
-    text = replace_once(text, 'versionCode = 2', 'versionCode = 1')
-    text = replace_once(text, 'versionName = "0.2.0"', 'versionName = "1.0"')
-    text = replace_once(
-        text,
-        'ndk { abiFilters += (project.findProperty("crysirrorAbis") as String? ?: "arm64-v8a").split(\',\') }',
-        f'ndk {{ abiFilters += listOf({kotlin_string(abi)}) }}'
-    )
-    text = replace_once(text, '    sourceSets { getByName("main") { jniLibs.srcDirs("../../../target/platform/android/jniLibs") } }\n', '')
+    text = text.replace('__APPLICATION_ID__', args.application_id)
+    text = text.replace('__ABI__', abi)
     gradle.write_text(text, encoding='utf-8')
-
-    values = app / 'src/main/res/values'
-    values.mkdir(parents=True, exist_ok=True)
-    (values / 'strings.xml').write_text(
-        '<?xml version="1.0" encoding="utf-8"?>\n<resources>\n'
-        f'    <string name="app_name">{escape(args.name)}</string>\n'
-        '</resources>\n', encoding='utf-8'
-    )
-
-    manifest = app / 'src/main/AndroidManifest.xml'
-    text = replace_once(manifest.read_text(encoding='utf-8'), 'android:label="CrySirror"', 'android:label="@string/app_name"')
-    manifest.write_text(text, encoding='utf-8')
-
-    activity = app / 'src/main/java/org/crysirror/player/MainActivity.java'
-    activity.write_text(patch_crysirror_activity(activity.read_text(encoding='utf-8')), encoding='utf-8')
+    strings = app / 'src/main/res/values/strings.xml'
+    strings.write_text(strings.read_text(encoding='utf-8').replace('__APP_NAME__', escape(args.name)), encoding='utf-8')
 
     assets = app / 'src/main/assets'
     game_assets = assets / 'game'
@@ -1622,9 +1532,14 @@ def prepare_crysirror_project(args, toolchain, workdir, jni):
     jni_dir.mkdir(parents=True, exist_ok=True)
     shutil.copytree(jni / abi, jni_dir / abi, dirs_exist_ok=True)
     (project / 'local.properties').write_text(f'sdk.dir={args.sdk}\n', encoding='utf-8')
-    (project / 'gradle.properties').write_text(
-        'org.gradle.jvmargs=-Xmx4g\nandroid.useAndroidX=true\n', encoding='utf-8'
-    )
+
+    candidates = [
+        args.source / 'icon/icon.png',
+        args.source / 'GameData/System/icon.png',
+        args.source / 'icon.png',
+    ]
+    candidates = [candidate for candidate in candidates if candidate.is_file()]
+    write_launcher_icons(app, candidates or [template / 'icon.png'])
     return project
 
 
