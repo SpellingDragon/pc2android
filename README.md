@@ -79,7 +79,7 @@ python3 skills/pc2android/scripts/pc2android.py /path/to/game
 python3 skills/pc2android/scripts/pc2android.py /path/to/game
 ```
 
-自动识别 XP3、Gameexe、RealLive、NScripter、Majiro、CatSystem2 等 VN 引擎，首次运行自动准备 CrySirror 源码、Rust 1.95、Android NDK 与 Gradle 9.1，生成单游戏 APK。首次运行需要 git、rustup、curl，下载量较大；原生运行时不走 Chromium 预检，需实机验证。
+自动识别 XP3、GameData/*.pack、Gameexe、RealLive、NScripter、Majiro、CatSystem2 等 VN 引擎，首次运行自动准备 CrySirror 源码、Rust 1.95、Android NDK 与 Gradle 9.1，生成单游戏 APK。首次运行需要 git、rustup、curl，下载量较大；原生运行时不走 Chromium 预检，需实机验证。
 
 ## 触屏与作弊
 

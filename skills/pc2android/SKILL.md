@@ -50,7 +50,7 @@ python3 <skill-dir>/scripts/pc2android.py <project-path> --cheat
 python3 <skill-dir>/scripts/pc2android.py /path/to/game
 ```
 
-自动识别 XP3、Gameexe、RealLive、NScripter、Majiro、CatSystem2 等 VN 引擎；首次运行自动准备 CrySirror 源码、Rust 1.95、Android NDK 与 Gradle 9.1，生成 `<name>-CrySirror.apk`。需要 git、rustup、curl；首次运行下载量较大。原生运行时不走 Chromium 预检，APK 构建/签名/CRC 通过后退出码为 0；游戏是否完整可玩需实机验证。
+自动识别 XP3、GameData/*.pack、Gameexe、RealLive、NScripter、Majiro、CatSystem2 等 VN 引擎；首次运行自动准备 CrySirror 源码、Rust 1.95、Android NDK 与 Gradle 9.1，生成 `<name>-CrySirror.apk`。需要 git、rustup、curl；首次运行下载量较大。原生运行时不走 Chromium 预检，APK 构建/签名/CRC 通过后退出码为 0；游戏是否完整可玩需实机验证。
 
 ## 作弊选项（可选）
 

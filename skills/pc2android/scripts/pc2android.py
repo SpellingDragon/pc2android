@@ -37,6 +37,7 @@ from pathlib import Path
 
 WEB_DIRS = ['audio', 'data', 'effects', 'fonts', 'icon', 'img', 'locales', 'models', 'css', 'credits.html']
 BACKUP_PATTERNS = ('*.bak*', '*.before-*', '.mz-timeline-backups', '_backup_*')
+CRYSIRROR_IGNORE = ('.git', '.DS_Store', '__MACOSX', '*.zip', '*.xlsx', 'UnInstall.exe', 'エンジン設定.exe', '上老王论坛当老王')
 TOOLCHAIN_HOME = Path(os.environ.get('PC2ANDROID_HOME') or (Path.home() / '.pc2android')).expanduser()
 REMEDIATION = []
 NEG_ZERO = '__PC2ANDROID_NEG_ZERO__'
@@ -556,6 +557,10 @@ def game_root(source):
 def detect_crysirror_engine(source):
     root = game_root(source)
     if any(root.glob('*.xp3')):
+        return 'crysirror'
+    if (root / 'GameData').is_dir() and any((root / 'GameData').glob('data*.pack')):
+        return 'crysirror'
+    if (root / 'DLL/wuvorbis.dll').is_file() or (root / 'DLL/TheoraLib.dll').is_file():
         return 'crysirror'
     if (root / 'Gameexe.dat').is_file():
         return 'crysirror'
@@ -1602,7 +1607,7 @@ def prepare_crysirror_project(args, toolchain, workdir, jni):
     shutil.copytree(
         args.source, game_assets, dirs_exist_ok=True,
         copy_function=shutil.copy2,
-        ignore=shutil.ignore_patterns('.git', '.DS_Store')
+        ignore=shutil.ignore_patterns(*CRYSIRROR_IGNORE)
     )
     licenses = assets / 'licenses'
     licenses.mkdir(parents=True, exist_ok=True)
@@ -1664,7 +1669,7 @@ def run_crysirror_pipeline(args):
         stage = workdir / 'game'
         shutil.copytree(
             args.source, stage, dirs_exist_ok=True, copy_function=shutil.copy2,
-            ignore=shutil.ignore_patterns('.git', '.DS_Store')
+            ignore=shutil.ignore_patterns(*CRYSIRROR_IGNORE)
         )
         print(f'Dry run complete. Staged CrySirror game: {stage}')
         return
@@ -2658,6 +2663,14 @@ def derive_identity(project):
                 pass
     if not name:
         name = project.name
+    if name.isdigit() or len(name) <= 2:
+        executables = sorted(
+            path for path in root.glob('*.exe')
+            if path.stem.lower() not in {'uninstall', 'エンジン設定'}
+            and '_chs_' not in path.stem.lower()
+        )
+        if executables:
+            name = executables[0].stem
     name = re.sub(r'[\\/:*?"<>|\x00-\x1f]', '', name).strip() or 'Game'
     slug = re.sub(r'[^a-z0-9]', '', name.lower())
     if not re.fullmatch(r'[a-z][a-z0-9]{2,}', slug):

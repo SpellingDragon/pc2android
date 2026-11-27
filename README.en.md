@@ -79,7 +79,7 @@ The command stays the same:
 python3 skills/pc2android/scripts/pc2android.py /path/to/game
 ```
 
-It auto-detects XP3, Gameexe, RealLive, NScripter, Majiro and CatSystem2 data. The first run prepares the CrySirror source, Rust 1.95, Android NDK and Gradle 9.1, then builds a single-game APK. The first run needs git, rustup and curl and downloads a lot; the native runtime does not use the Chromium preflight and needs device validation.
+It auto-detects XP3, GameData/*.pack, Gameexe, RealLive, NScripter, Majiro and CatSystem2 data. The first run prepares the CrySirror source, Rust 1.95, Android NDK and Gradle 9.1, then builds a single-game APK. The first run needs git, rustup and curl and downloads a lot; the native runtime does not use the Chromium preflight and needs device validation.
 
 ## Touch controls and cheats
 
