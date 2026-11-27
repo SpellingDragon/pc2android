@@ -2,124 +2,81 @@
 
 **把 PC 游戏一键打包成单个安卓 APK。**
 
-RPG Maker MV/MZ · NW.js · Electron · 视觉小说（KiriKiri/Siglus/RealLive/QLIE） · 自动环境 · 虚拟键盘 · 构建校验
+RPG Maker MV/MZ · NW.js · Electron · KiriKiri · Siglus · RealLive · QLIE
 
 [![CI](https://github.com/SpellingDragon/game-pc2and/actions/workflows/ci.yml/badge.svg)](https://github.com/SpellingDragon/game-pc2and/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/SpellingDragon/game-pc2and?label=release)](https://github.com/SpellingDragon/game-pc2and/releases/latest)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-[English](README.en.md) · [下载最新版](https://github.com/SpellingDragon/game-pc2and/releases/latest) · [观看 21 秒演示](https://github.com/SpellingDragon/game-pc2and/releases/latest/download/game-pc2and-demo.mp4) · [CrySirror QLIE 补丁 PR](https://github.com/xmoezzz/CrySirror/pull/21)
+[English](README.en.md) · [下载最新版](https://github.com/SpellingDragon/game-pc2and/releases/latest) · [观看演示](https://github.com/SpellingDragon/game-pc2and/releases/latest/download/game-pc2and-demo.mp4) · [CrySirror QLIE 补丁 PR](https://github.com/xmoezzz/CrySirror/pull/21)
 
 ![game-pc2and：RPG Maker、Electron、KiriKiri、Siglus、RealLive、QLIE 一键打包安卓 APK](docs/images/hero.png)
 
-## 30 秒开始
+## 快速开始
 
 ```bash
 python3 skills/pc2android/scripts/pc2android.py /path/to/game
 ```
 
-自动识别引擎并输出单个 APK：
+自动识别引擎，输出单个 APK。首次运行自动准备 JDK、Android SDK、Gradle；CrySirror 路径另准备 Rust 1.95、NDK、cargo-ndk。无需 Android Studio，无需 root。
 
-- RPG Maker MV/MZ、NW.js、Electron → `<游戏名>-WebView.apk`
-- KiriKiri、Siglus、RealLive、QLIE 等 → `<游戏名>-CrySirror.apk`
+## 支持什么
 
-第一次运行自动安装缺失的 JDK、Android SDK、Gradle；CrySirror 路径还会准备 Rust 1.95、Android NDK 与 cargo-ndk。无需 Android Studio，无需 root。
+| 后端 | 适用 | 状态 |
+|---|---|---|
+| WebView | RPG Maker MZ/MV、NW.js、Electron | 已验证 |
+| CrySirror | KiriKiri、Siglus、RealLive、QLIE 等 VN 引擎 | 按引擎验证 |
+| — | 其他 Win32 原生引擎 | 建议 Winlator |
 
-## 能打包什么
+<details>
+<summary>CrySirror 完整引擎列表</summary>
 
-| 你的游戏 | 引擎/格式 | 后端 | 状态 |
-|---|---|---|---|
-| RPG Maker MZ | `js/rmmz_core.js`、`www/` | WebView | 已验证 |
-| RPG Maker MV | `js/rpg_core.js`、`www/` | WebView | 已验证 |
-| NW.js 网页游戏 | `package.json` + `index.html` | WebView | 已验证 |
-| Electron（asar） | `app.asar` / `base.asar` | WebView | 已验证 |
-| 视觉小说 / ADV / galgame | KiriKiri、Siglus、RealLive、AVG32、BGI、SoftPAL、RFVP、NScripter、Circus、CatSystem2、QLIE、Majiro、AliceSoft System 4、System-NNN、SugarPot、codeX RScript、N-System、N2System、Malie、WillPlus/AdvHD、CMVS/CVNS、ExHibit、minori、CM3D2/COM3D2、AmanatsuLocation | CrySirror 原生后端 | 按引擎验证 |
-| 其他 Windows 原生引擎 | 未列出的 Win32 引擎 | 不适用 | 建议 Winlator |
+KiriKiri、Siglus、RealLive、AVG32、BGI、SoftPAL、RFVP、NScripter、Circus、CatSystem2、QLIE、Majiro、AliceSoft System 4、System-NNN、SugarPot、codeX RScript、N-System、N2System、Malie、WillPlus/AdvHD、CMVS/CVNS、ExHibit、minori、CM3D2/COM3D2、AmanatsuLocation。
 
-CrySirror 后端覆盖的引擎由文件签名自动识别；识别不到时可用 `--engine crysirror` 显式指定。
+</details>
+
+识别不到时用 `--engine crysirror` 显式指定。
 
 ## 能力
 
-- **单 APK**：游戏、运行时、虚拟键盘/宿主、许可证打进一个安装包。
-- **自动环境**：JDK 17、Android platform/build-tools、Gradle、Chrome for Testing、Python 依赖自动安装并校验。
-- **CrySirror 原生后端**：VN 引擎走 Rust 原生运行时，不再套 WebView；与 WebView 并列维护。
-- **虚拟键盘**：MZ3D 等连续输入游戏自动注入半透明键盘，支持隐藏、透明度和多指。
-- **可选作弊**：RPG Maker 物品价格取负、敌人经验最高位前加 1；自定义 Electron 的 `window.__GAME_DATA__` 递归修改。
-- **构建校验**：签名、对齐、CRC、APK 内资源完整性；WebView 路径额外做 Chromium 预检。
-- **Agent Skill**：复制 `skills/pc2android` 即可挂载为 Agent Skill。
+- **单 APK**：游戏、运行时、虚拟键盘/宿主、许可证。
+- **自动环境**：JDK、Android SDK、Gradle、Chrome、Python 依赖。
+- **两条后端**：WebView（RPG Maker/NW.js/Electron）与 CrySirror（VN）。
+- **虚拟键盘**：MZ3D 等连续输入，支持隐藏、透明度、多指。
+- **可选作弊**：RPG Maker 物品价格、敌人经验；Electron `__GAME_DATA__`。
+- **校验**：签名、对齐、CRC、资源完整性；WebView 预检。
 
 ## 演示
 
 ![RPG Maker/Electron 游戏打包安卓 APK 演示](docs/images/demo-preview.gif)
 
-[完整演示视频（构建日志、虚拟键盘、实际游玩、预检报告）](https://github.com/SpellingDragon/game-pc2and/releases/latest/download/game-pc2and-demo.mp4)
+[完整演示视频（构建、虚拟键盘、游玩、预检）](https://github.com/SpellingDragon/game-pc2and/releases/latest/download/game-pc2and-demo.mp4)
 
-手机开启 USB 调试并连接后，可录制实机片段：
+<details>
+<summary>实机录制</summary>
 
 ```bash
 bash docs/device-demo.sh /path/to/Game-WebView.apk
 ```
 
-脚本会安装并启动 APK、录制屏幕、拉回 `device-demo.mp4`。
+</details>
 
-## 作为 Agent Skill
+## 用法
 
-```bash
-git clone https://github.com/SpellingDragon/game-pc2and.git
-cd game-pc2and
-```
-
-把 `skills/pc2android` 复制到你的 Agent 的用户级或项目级 skills 目录，重新加载 skills 后：
-
-```text
-/pc2android /path/to/game
-```
-
-不同 Agent 的 skills 目录位置不同，按其文档挂载同一目录即可。
-
-## CrySirror 原生后端
-
-命令不变：
+直接运行：
 
 ```bash
 python3 skills/pc2android/scripts/pc2android.py /path/to/game
 ```
 
-自动识别 CrySirror 支持的引擎：KiriKiri、Siglus、RealLive、AVG32、BGI、SoftPAL、RFVP、NScripter、Circus、CatSystem2、QLIE、Majiro、AliceSoft System 4、System-NNN、SugarPot、codeX RScript、N-System、N2System、Malie、WillPlus/AdvHD、CMVS/CVNS、ExHibit、minori、CM3D2/COM3D2、AmanatsuLocation。
-
-- 引擎与宿主解耦：只消费 `libcrysirror_mobile.so`，Android 宿主由 game-pc2and 自己维护（横屏全屏、Surface、输入、生命周期），不修改上游 `platform/android`。
-- 首次运行自动准备 CrySirror 源码、Rust 1.95、Android NDK、Gradle 9.1。
-- APK 内附 MPL-2.0 许可证、源码 commit/修改说明、依赖许可证清单和可获取的许可证文本。
-- 原生运行时不走 Chromium 预检，需实机验证；兼容性按引擎/游戏分别确认。
-
-## 触屏与作弊
-
-- 菜单/ADV/回合制游戏保持触屏操作；MZ3D 等输入复杂的游戏自动注入半透明虚拟键盘，可隐藏、可调透明度。
-- 虚拟键盘按住即 keydown、松开即 keyup，支持多指。
-
-```bash
-python3 skills/pc2android/scripts/pc2android.py /path/to/game --cheat
-```
-
-- RPG Maker：物品 `price > 0` 取负，`price == 0` 变 `-0`；敌人 `exp != 0` 时最高位前加 `1`。
-- 暴露 `window.__GAME_DATA__` 的自定义 Electron 引擎：递归修改其中的 `price`。
-- 只改暂存副本，源游戏文件不动；数量写入 `report.json` 的 `cheat` 字段。
-
-## 工作流与验证
+作为 Agent Skill：把 `skills/pc2android` 复制到 Agent skills 目录，然后：
 
 ```text
-识别引擎与入口
-  → WebView：HTML5 / RPG Maker / NW.js / Electron
-  → CrySirror：VN 引擎原生运行时
-  → 单 APK
-  → 签名 / 对齐 / CRC / 资源完整性
-  → WebView 预检 / 输入画像
+/pc2android /path/to/game
 ```
 
-退出码 0 才会输出 APK；失败时查看 `report.json` 的 `failures`、`suggestions`、`cheat.candidates` 与 `remediation`。
-
 <details>
-<summary>高级参数与故障排查</summary>
+<summary>高级参数</summary>
 
 ```bash
 python3 skills/pc2android/scripts/pc2android.py \
@@ -130,30 +87,38 @@ python3 skills/pc2android/scripts/pc2android.py \
   --preflight
 ```
 
-- `--engine auto|rmmz|rmmv|nwjs|electron|crysirror`
-- `--dry-run`：只检测与暂存
-- 省略 `--preflight`：只构建并校验
-- `--browser <path>`：指定 Chromium
-- `--keep-work`：保留生成的 Android 工程
-
-下载失败检查 `HTTPS_PROXY` 与 curl 后重跑。
+`--engine auto|rmmz|rmmv|nwjs|electron|crysirror`、`--dry-run`、`--keep-work`、`--browser`。
 
 </details>
 
-## 常见问题
+## CrySirror 后端
 
-**RPG Maker MV/MZ 能转安卓吗？** 能。`www/` 或 `data_Win/` 直接打包，自动处理 MZ3D、MessageSkip 等输入兼容。
-**Electron / NW.js 游戏能打包成 APK 吗？** 能。支持 `app.asar` / `base.asar` 和 `package.json` + `index.html` 两种布局。
-**KiriKiri、Siglus、RealLive、QLIE 能在安卓运行吗？** 走 CrySirror 原生后端，按引擎/游戏验证；不是所有 VN 都保证完整可玩。
-**需要 Android Studio 吗？** 不需要，SDK 组件自动安装。
-**需要 root 吗？** 不需要。
-**所有 PC 游戏都能转吗？** 不能。HTML5/RPG Maker/NW.js/Electron 走 WebView；CrySirror 支持的 VN 引擎走原生后端；其他 Windows 原生引擎建议 Winlator。
-**游戏资源会进仓库吗？** 不会，请只打包你拥有或已获授权的游戏。
-**APK 是 release 签名吗？** 当前构建为 debug 签名；正式分发请配置 release 签名。
-**虚拟键盘会自动代打吗？** 不会，它只把触摸转成游戏按键。
+- 自动识别 CrySirror 支持的 VN 引擎，与 WebView 并列维护。
+- 只消费 `libcrysirror_mobile.so`；Android 宿主由 game-pc2and 维护，不修改上游 `platform/android`。
+- APK 内含 MPL-2.0、源码 commit/修改说明、依赖许可证清单和可获取的许可证文本。
+- 不走 Chromium 预检，需实机验证。
+
+## 触屏与作弊
+
+- 菜单/ADV/回合制保持触屏；MZ3D 自动虚拟键盘。
+- `--cheat`：RPG Maker 物品 `price > 0` 取负、`price == 0` 变 `-0`、敌人 `exp != 0` 最高位前加 1；Electron `window.__GAME_DATA__` 递归修改。
+
+## FAQ
+
+**RPG Maker MV/MZ 能转安卓吗？** 能，直接打包 `www/` 或 `data_Win/`。
+
+**Electron/NW.js 能打包 APK 吗？** 能，支持 `app.asar`/`base.asar` 和 `package.json` + `index.html`。
+
+**KiriKiri/Siglus/RealLive/QLIE 能运行吗？** 走 CrySirror，按引擎/游戏验证。
+
+**需要 Android Studio/root 吗？** 不需要。
+
+**所有 PC 游戏都能转吗？** 不能；未列出的 Win32 引擎建议 Winlator。
+
+**APK 是 release 签名吗？** 当前 debug 签名，正式分发请配置 release。
+
+**游戏资源会进仓库吗？** 不会；只打包你拥有/授权的游戏。
 
 ## License
 
-MIT，见 [LICENSE](LICENSE)。CrySirror 组件为 MPL-2.0，源码 commit、修改说明、依赖许可证清单和可获取的许可证文本随 APK 放在 `assets/licenses/`；第三方致谢见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
-
-RPG Maker 是 Gotcha Gotcha Games 的商标；Android 是 Google LLC 的商标。本项目与上述组织无关联。
+MIT。CrySirror 为 MPL-2.0；源码 commit、修改说明、依赖许可证清单和可获取的许可证文本随 APK 放在 `assets/licenses/`。
