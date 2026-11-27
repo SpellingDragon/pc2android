@@ -8,7 +8,7 @@ RPG Maker MV/MZ · NW.js · Electron · KiriKiri · Siglus · RealLive · QLIE
 [![Release](https://img.shields.io/github/v/release/SpellingDragon/game-pc2and?label=release)](https://github.com/SpellingDragon/game-pc2and/releases/latest)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-[中文](README.md) · [Latest release](https://github.com/SpellingDragon/game-pc2and/releases/latest) · [Demo](https://github.com/SpellingDragon/game-pc2and/releases/latest/download/game-pc2and-demo.mp4) · [CrySirror QLIE patch PR](https://github.com/xmoezzz/CrySirror/pull/21)
+[中文](README.md) · [Latest release](https://github.com/SpellingDragon/game-pc2and/releases/latest) · [Demo](https://github.com/SpellingDragon/game-pc2and/releases/latest/download/game-pc2and-demo.mp4) · [CrySirror project](https://github.com/xmoezzz/CrySirror)
 
 ![game-pc2and: turn RPG Maker, Electron, KiriKiri, Siglus, RealLive and QLIE games into one Android APK](docs/images/hero.png)
 
