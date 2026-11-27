@@ -1,7 +1,7 @@
 # game-pc2and
 
 **Turn PC games into one Android APK — with one command.**  
-RPG Maker MV/MZ · NW.js · Electron · automatic setup · verification · virtual keyboard · optional cheats
+RPG Maker MV/MZ · NW.js · Electron · CrySirror native VN · automatic setup · verification · virtual keyboard · optional cheats
 
 [![CI](https://github.com/SpellingDragon/game-pc2and/actions/workflows/ci.yml/badge.svg)](https://github.com/SpellingDragon/game-pc2and/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
@@ -53,6 +53,7 @@ Output is written to the current directory:
 
 ```text
 <game-name>-WebView.apk
+<game-name>-CrySirror.apk (CrySirror native VN backend)
 <game-name>-preflight/report.json
 <game-name>-preflight/title.png / map.png
 ```
@@ -67,7 +68,18 @@ The APK is emitted only on exit code 0. On failure, inspect `failures`, `suggest
 | RPG Maker MV | verified |
 | NW.js | verified |
 | Electron (asar) | verified |
-| Windows-native engines (QLIE, KiriKiri, ...) | use Winlator instead |
+| CrySirror native VN engines (KiriKiri, Siglus, RealLive, ...) | experimental; Rust/NDK prepared automatically |
+| Other Windows-native engines | use Winlator instead |
+
+## CrySirror native backend (experimental)
+
+The command stays the same:
+
+```bash
+python3 skills/pc2android/scripts/pc2android.py /path/to/game
+```
+
+It auto-detects XP3, Gameexe, RealLive, NScripter, Majiro and CatSystem2 data. The first run prepares the CrySirror source, Rust 1.95, Android NDK and Gradle 9.1, then builds a single-game APK. The first run needs git, rustup and curl and downloads a lot; the native runtime does not use the Chromium preflight and needs device validation.
 
 ## Touch controls and cheats
 
@@ -84,7 +96,7 @@ python3 skills/pc2android/scripts/pc2android.py /path/to/game --cheat
 
 ## Technology
 
-Detect engine and entry → compatibility fixes → WebView APK → APK-served preflight → input profile and touch/virtual keyboard.
+Detect engine and entry → WebView or CrySirror native backend → single APK → build verification → WebView preflight/input profile.
 
 <details>
 <summary>Advanced options and troubleshooting</summary>
@@ -98,7 +110,7 @@ python3 skills/pc2android/scripts/pc2android.py \
   --preflight
 ```
 
-- `--engine auto|rmmz|rmmv|nwjs|electron`
+- `--engine auto|rmmz|rmmv|nwjs|electron|crysirror`
 - `--dry-run` — detect and stage only
 - omit `--preflight` — build and verify without the browser run
 - `--browser <path>` — explicit Chromium path
@@ -112,7 +124,7 @@ For download errors, check `HTTPS_PROXY` and curl, then rerun.
 
 **Do I need root?** No.  
 **Do I need Android Studio?** No, SDK components are installed automatically.  
-**Does it support every PC game?** It currently targets HTML5, RPG Maker MV/MZ, NW.js and Electron games.  
+**Does it support every PC game?** HTML5 / RPG Maker / NW.js / Electron use WebView; supported VN engines use the CrySirror native backend; other Windows-native engines should use Winlator.
 **Are game assets included?** No. Package only games you own or are authorized to distribute.  
 **Does the virtual keyboard play for me?** No, it only translates touch into game key events.
 

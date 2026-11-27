@@ -1,7 +1,7 @@
 # game-pc2and
 
 **电脑游戏，一键变成安卓 APK。**  
-RPG Maker MV/MZ · NW.js · Electron · 自动环境 · 自动验证 · 虚拟键盘 · 可选作弊
+RPG Maker MV/MZ · NW.js · Electron · CrySirror 原生 VN · 自动环境 · 自动验证 · 虚拟键盘 · 可选作弊
 
 [![CI](https://github.com/SpellingDragon/game-pc2and/actions/workflows/ci.yml/badge.svg)](https://github.com/SpellingDragon/game-pc2and/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
@@ -53,6 +53,7 @@ python3 skills/pc2android/scripts/pc2android.py /path/to/game
 
 ```text
 <游戏名>-WebView.apk
+<游戏名>-CrySirror.apk（CrySirror 原生 VN 后端）
 <游戏名>-preflight/report.json
 <游戏名>-preflight/title.png / map.png
 ```
@@ -67,7 +68,18 @@ python3 skills/pc2android/scripts/pc2android.py /path/to/game
 | RPG Maker MV | 已验证 |
 | NW.js 网页游戏 | 已验证 |
 | Electron（asar） | 已验证 |
-| Windows 原生引擎（QLIE、KiriKiri 等） | 不适用，建议 Winlator |
+| CrySirror 原生 VN 引擎（KiriKiri、Siglus、RealLive 等） | 实验性，首次运行自动准备 Rust/NDK |
+| 其他 Windows 原生引擎 | 建议 Winlator |
+
+## CrySirror 原生后端（实验性）
+
+使用方式不变：
+
+```bash
+python3 skills/pc2android/scripts/pc2android.py /path/to/game
+```
+
+自动识别 XP3、Gameexe、RealLive、NScripter、Majiro、CatSystem2 等 VN 引擎，首次运行自动准备 CrySirror 源码、Rust 1.95、Android NDK 与 Gradle 9.1，生成单游戏 APK。首次运行需要 git、rustup、curl，下载量较大；原生运行时不走 Chromium 预检，需实机验证。
 
 ## 触屏与作弊
 
@@ -84,7 +96,7 @@ python3 skills/pc2android/scripts/pc2android.py /path/to/game --cheat
 
 ## 技术
 
-识别引擎与入口 → 兼容修复 → WebView 单 APK → 从 APK 直接预检 → 输入画像与触屏/虚拟键盘。
+识别引擎与入口 → WebView 或 CrySirror 原生后端 → 单 APK → 构建校验 → WebView 预检/输入画像。
 
 <details>
 <summary>高级参数与故障排查</summary>
@@ -98,7 +110,7 @@ python3 skills/pc2android/scripts/pc2android.py \
   --preflight
 ```
 
-- `--engine auto|rmmz|rmmv|nwjs|electron`
+- `--engine auto|rmmz|rmmv|nwjs|electron|crysirror`
 - `--dry-run`：只检测与暂存
 - 省略 `--preflight`：只构建并校验
 - `--browser <path>`：指定 Chromium
@@ -112,7 +124,7 @@ python3 skills/pc2android/scripts/pc2android.py \
 
 **需要 root 吗？** 不需要。  
 **需要 Android Studio 吗？** 不需要，SDK 组件会自动安装。  
-**所有 PC 游戏都能转吗？** 当前面向 HTML5 / RPG Maker MV/MZ / NW.js / Electron。  
+**所有 PC 游戏都能转吗？** HTML5 / RPG Maker / NW.js / Electron 走 WebView；CrySirror 支持的 VN 引擎走原生后端；其余 Windows 原生引擎建议 Winlator。
 **游戏资源会进仓库吗？** 不会，请只打包你拥有或已获授权的游戏。  
 **虚拟键盘会自动代打吗？** 不会，它只把触摸转成游戏按键。
 

@@ -9,9 +9,12 @@ informed by the following open-source projects:
 | rpgmaker-to-android | MIT | https://github.com/cellicom/rpgmaker-to-android |
 | Ludens | Apache-2.0 | https://github.com/yoimerdr/ludens |
 | AndroidX WebKit | Apache-2.0 | https://github.com/androidx/androidx |
+| CrySirror | MPL-2.0 | https://github.com/xmoezzz/CrySirror |
 
 No source code from these projects is included in this repository. Their
-license texts remain with their respective repositories.
+license texts remain with their respective repositories. CrySirror source is
+fetched at build time; its MPL-2.0 license and available notices are copied into
+the APK under `assets/licenses/`.
 
 ## Trademarks
 

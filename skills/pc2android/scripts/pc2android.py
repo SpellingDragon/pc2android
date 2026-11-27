@@ -32,6 +32,7 @@ import types
 import urllib.parse
 import urllib.request
 import zipfile
+from xml.sax.saxutils import escape
 from pathlib import Path
 
 WEB_DIRS = ['audio', 'data', 'effects', 'fonts', 'icon', 'img', 'locales', 'models', 'css', 'credits.html']
@@ -538,9 +539,9 @@ public class MainActivity extends Activity {
 '''
 
 
-def run(command, env=None):
+def run(command, env=None, cwd=None):
     print('+ ' + ' '.join(map(str, command)), flush=True)
-    subprocess.run(list(map(str, command)), check=True, env=env)
+    subprocess.run(list(map(str, command)), check=True, env=env, cwd=cwd)
 
 
 def game_root(source):
@@ -552,8 +553,28 @@ def game_root(source):
     return source
 
 
+def detect_crysirror_engine(source):
+    root = game_root(source)
+    if any(root.glob('*.xp3')):
+        return 'crysirror'
+    if (root / 'Gameexe.dat').is_file():
+        return 'crysirror'
+    if (root / 'Gameexe.ini').is_file() and (root / 'Seen.txt').is_file():
+        return 'crysirror'
+    if (root / 'nscript.dat').is_file():
+        return 'crysirror'
+    if any(root.glob('*.mjo')) and any(root.glob('*.arc')):
+        return 'crysirror'
+    if any(root.glob('*.int')) and any(root.glob('*.cst')):
+        return 'crysirror'
+    return None
+
+
 def detect_engine(source):
     root = game_root(source)
+    crysirror = detect_crysirror_engine(source)
+    if crysirror:
+        return crysirror
     if (root / 'js/rmmz_core.js').is_file():
         return 'rmmz'
     if (root / 'js/rpg_core.js').is_file():
@@ -565,6 +586,235 @@ def detect_engine(source):
     if (root / 'Game.exe').is_file():
         return 'windows'
     return 'unknown'
+
+
+def find_crysirror_source(explicit=None):
+    candidates = [
+        Path(explicit).expanduser() if explicit else None,
+        Path(os.environ['CRYSIRROR_SOURCE']).expanduser() if os.environ.get('CRYSIRROR_SOURCE') else None,
+        TOOLCHAIN_HOME / 'crysirror',
+    ]
+    for candidate in candidates:
+        if not candidate:
+            continue
+        path = candidate.resolve()
+        if (path / 'platform/android/app/build.gradle.kts').is_file() and (path / 'tools/package_platform.py').is_file():
+            return path
+    raise RuntimeError(
+        'CrySirror source not found. Clone https://github.com/xmoezzz/CrySirror.git '
+        'into ~/.pc2android/crysirror, set CRYSIRROR_SOURCE, or pass --crysirror-source.'
+    )
+
+
+def rust_version(env=None):
+    try:
+        output = subprocess.check_output(['rustc', '--version'], text=True, stderr=subprocess.STDOUT, timeout=30, env=env)
+    except (OSError, subprocess.SubprocessError):
+        return (0, 0)
+    match = re.search(r'rustc (\d+)\.(\d+)', output)
+    return (int(match.group(1)), int(match.group(2))) if match else (0, 0)
+
+
+def ensure_crysirror_source():
+    try:
+        return find_crysirror_source()
+    except RuntimeError:
+        git = shutil.which('git')
+        if not git:
+            raise RuntimeError('git is required to fetch the CrySirror source automatically')
+        target = TOOLCHAIN_HOME / 'crysirror'
+        if target.is_dir():
+            shutil.rmtree(target)
+        elif target.exists():
+            target.unlink()
+        target.parent.mkdir(parents=True, exist_ok=True)
+        run([git, 'clone', '--depth', '1', 'https://github.com/xmoezzz/CrySirror.git', str(target)])
+        return find_crysirror_source()
+
+
+def ensure_rust_toolchain():
+    if rust_version() >= (1, 95):
+        return None
+    rustup = shutil.which('rustup')
+    if not rustup:
+        raise RuntimeError('Rust 1.95+ is required. Install rustup and run: rustup toolchain install 1.95.0')
+    run([rustup, 'toolchain', 'install', '1.95.0', '--profile', 'minimal'])
+    output = subprocess.check_output(
+        [rustup, 'run', '1.95.0', 'rustc', '--version'],
+        text=True, stderr=subprocess.STDOUT, timeout=60
+    )
+    match = re.search(r'rustc (\d+)\.(\d+)', output)
+    if not match or (int(match.group(1)), int(match.group(2))) < (1, 95):
+        raise RuntimeError('Rust 1.95.0 installation did not produce a usable rustc')
+    return '1.95.0'
+
+
+def install_ndk(sdk, java_home=None):
+    import xml.etree.ElementTree as ElementTree
+    sdk = Path(sdk)
+    base = 'https://dl.google.com/android/repository/'
+    curl = shutil.which('curl')
+    if not curl:
+        raise RuntimeError('curl is required for NDK download')
+    result = subprocess.run(
+        [curl, '-fsSL', '--max-time', '180', base + 'repository2-3.xml'],
+        stdout=subprocess.PIPE, check=True
+    )
+    root = ElementTree.fromstring(result.stdout)
+    host_os = 'macosx' if platform.system() == 'Darwin' else 'linux'
+    packages = []
+    for package in root.iter():
+        if not package.tag.endswith('remotePackage'):
+            continue
+        path = package.get('path', '')
+        if not path.startswith('ndk;'):
+            continue
+        version = path.split(';', 1)[1]
+        if not re.fullmatch(r'\d+(?:\.\d+)+', version):
+            continue
+        for archive in package.iter():
+            if not archive.tag.endswith('archive'):
+                continue
+            host = next((child.text.strip() for child in archive if child.tag.endswith('host-os')), '')
+            if host and host != host_os:
+                continue
+            complete = next(child for child in archive if child.tag.endswith('complete'))
+            meta = {child.tag.split('}')[-1]: (child.text or '').strip() for child in complete}
+            packages.append((tuple(int(part) for part in version.split('.')), version, meta))
+            break
+    if not packages:
+        raise RuntimeError('No stable Android NDK found in the Google repository')
+    _, version, meta = max(packages, key=lambda item: item[0])
+    archive = TOOLCHAIN_HOME / 'downloads' / Path(meta['url']).name
+    download_file(base + meta['url'], archive)
+    if str(archive.stat().st_size) != meta['size']:
+        raise RuntimeError(f'Size mismatch for NDK {version}')
+    if hashlib.sha1(archive.read_bytes()).hexdigest() != meta['checksum']:
+        raise RuntimeError(f'Checksum mismatch for NDK {version}')
+    temp = TOOLCHAIN_HOME / 'downloads' / ('extract-ndk-' + version)
+    shutil.rmtree(temp, ignore_errors=True)
+    extract_archive(archive, temp)
+    archive.unlink(missing_ok=True)
+    target = sdk / 'ndk' / version
+    shutil.rmtree(target, ignore_errors=True)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    entries = list(temp.iterdir())
+    if len(entries) == 1 and entries[0].is_dir():
+        shutil.move(str(entries[0]), target)
+    else:
+        target.mkdir(parents=True, exist_ok=True)
+        for item in entries:
+            shutil.move(str(item), target / item.name)
+    shutil.rmtree(temp, ignore_errors=True)
+    if not (target / 'toolchains/llvm/prebuilt').is_dir():
+        raise RuntimeError('NDK install did not produce a usable LLVM toolchain')
+    print(f'Installed Android NDK {version} at {target}', flush=True)
+    record_remediation(f'installed Android NDK {version}')
+    return target
+
+def ensure_ndk(sdk, java_home=None):
+    try:
+        return find_ndk(sdk)
+    except RuntimeError:
+        if not sdk:
+            raise
+        install_ndk(sdk, java_home)
+        return find_ndk(sdk)
+
+
+def find_ndk(sdk):
+    candidates = [
+        Path(os.environ['ANDROID_NDK_HOME']).expanduser() if os.environ.get('ANDROID_NDK_HOME') else None,
+        Path(os.environ['ANDROID_NDK_ROOT']).expanduser() if os.environ.get('ANDROID_NDK_ROOT') else None,
+    ]
+    if sdk:
+        candidates += sorted((Path(sdk) / 'ndk').glob('*'), key=lambda path: path.name, reverse=True)
+    for candidate in candidates:
+        if not candidate:
+            continue
+        path = Path(candidate).expanduser()
+        if (path / 'toolchains/llvm/prebuilt').is_dir():
+            return path.resolve()
+    raise RuntimeError(
+        'Android NDK not found. Install an NDK with Android Studio/SDK Manager and set ANDROID_NDK_HOME.'
+    )
+
+
+def ensure_cargo_ndk(toolchain=None):
+    if (Path.home() / '.cargo/bin/cargo-ndk').is_file():
+        return
+    try:
+        subprocess.check_output(['cargo', 'ndk', '--version'], text=True, stderr=subprocess.STDOUT, timeout=30)
+        return
+    except (OSError, subprocess.SubprocessError):
+        pass
+    env = os.environ.copy()
+    command = ['cargo', 'install', 'cargo-ndk', '--locked']
+    if toolchain:
+        command = ['rustup', 'run', toolchain] + command
+        env['PATH'] = str(Path.home() / '.cargo/bin') + os.pathsep + env.get('PATH', '')
+    run(command, env=env)
+
+
+def install_gradle9(home):
+    archive = home / 'downloads/gradle-9.1.0-bin.zip'
+    download_file('https://services.gradle.org/distributions/gradle-9.1.0-bin.zip', archive)
+    target = home / 'gradle-9.1.0'
+    shutil.rmtree(target, ignore_errors=True)
+    extract_archive(archive, home)
+    archive.unlink(missing_ok=True)
+    binary = target / 'bin/gradle'
+    version = gradle_version(binary)
+    if not binary.is_file() or not version or tuple(map(int, version.split('.')[:2])) < (9, 1):
+        raise RuntimeError('Gradle install did not produce Gradle 9.1+')
+    binary.chmod(0o755)
+    print(f'Installed Gradle 9.1 at {target}', flush=True)
+    record_remediation(f'installed Gradle 9.1 at {target}')
+    return binary
+
+
+def find_gradle9(explicit=None):
+    candidates = [
+        Path(explicit).expanduser() if explicit else None,
+        Path(os.environ['CRYSIRROR_GRADLE']).expanduser() if os.environ.get('CRYSIRROR_GRADLE') else None,
+        TOOLCHAIN_HOME / 'gradle-9.1.0/bin/gradle',
+        Path('.tools/gradle-9.1.0/bin/gradle').resolve(),
+        shutil.which('gradle'),
+    ]
+    candidates += [
+        path
+        for path in (Path.home() / '.gradle/wrapper/dists/gradle-9.1.0-bin').glob('*/gradle-9.1.0/bin/gradle')
+    ]
+    for candidate in candidates:
+        if not candidate or not Path(candidate).is_file():
+            continue
+        version = gradle_version(Path(candidate))
+        if version and tuple(map(int, version.split('.')[:2])) >= (9, 1):
+            return Path(candidate).expanduser().resolve()
+    return install_gradle9(TOOLCHAIN_HOME)
+
+
+def ensure_sdk_licenses(sdk):
+    licenses = Path(sdk) / 'licenses'
+    licenses.mkdir(parents=True, exist_ok=True)
+    (licenses / 'android-sdk-license').write_text(
+        '\n8933bad161af4178b1185d1a37fbf41ea5269c55\n24333f8a63b6825ea9c5514f83c2829b004d1fee\n',
+        encoding='utf-8'
+    )
+    (licenses / 'android-sdk-preview-license').write_text(
+        '\n84831b9409646a918e30573bab4c9c91346d8abd\n', encoding='utf-8'
+    )
+
+
+def ensure_crysirror_toolchain(args):
+    source = ensure_crysirror_source()
+    rust_toolchain = ensure_rust_toolchain()
+    ensure_cargo_ndk(rust_toolchain)
+    if args.sdk:
+        ensure_sdk_licenses(args.sdk)
+    ndk = ensure_ndk(args.sdk, args.java_home)
+    gradle = find_gradle9(getattr(args, 'crysirror_gradle', None))
+    return {'source': source, 'ndk': ndk, 'gradle': gradle, 'rust_toolchain': rust_toolchain}
 
 
 def remove_backup_files(root):
@@ -1199,6 +1449,250 @@ dependencies {{
     if not candidates:
         raise RuntimeError('No suitable PNG launcher icon found')
     write_launcher_icons(app, candidates)
+
+
+def replace_once(text, old, new):
+    if old not in text:
+        raise RuntimeError(f'CrySirror patch target not found: {old[:80]}')
+    return text.replace(old, new, 1)
+
+
+def kotlin_string(value):
+    return '"' + str(value).replace('\\', '\\\\').replace('"', '\\"') + '"'
+
+
+def patch_crysirror_activity(text):
+    text = replace_once(text, '    private boolean importing;\n', '    private boolean importing;\n    private boolean bundledAutoPlay;\n    private String bundledError;\n')
+    text = replace_once(text, '        game=getPreferences(0).getString("game",null);\n', '''        game=getPreferences(0).getString("game",null);
+        try {
+            if(getAssets().list("game").length>0) prepareBundledGame();
+        } catch(Exception e) {
+            bundledError="Bundled game unavailable: "+e.getMessage();
+        }
+''')
+    text = replace_once(text, '    void library() {\n', '''    private boolean prepareBundledGame() {
+        File target=new File(getFilesDir(),"games/bundled");
+        try {
+            if(!target.isDirectory() || target.list()==null || target.list().length==0) copyAssetTree("game",target);
+            game=target.getAbsolutePath();
+            getPreferences(0).edit().putString("game",game).apply();
+            bundledAutoPlay=true;
+            return true;
+        } catch(Exception e) {
+            bundledError="Bundled game copy failed: "+e.getMessage();
+            return false;
+        }
+    }
+    private void copyAssetTree(String path, File target) throws IOException {
+        android.content.res.AssetManager assets=getAssets();
+        try(InputStream in=assets.open(path)) {
+            try(OutputStream out=new FileOutputStream(target)) {
+                byte[] buffer=new byte[131072];
+                int count;
+                while((count=in.read(buffer))!=-1) out.write(buffer,0,count);
+            }
+            return;
+        } catch(FileNotFoundException notAFile) {
+            // Directory entry; recurse below.
+        }
+        if(!target.isDirectory() && !target.mkdirs()) throw new IOException("Create "+target);
+        String[] children=assets.list(path);
+        if(children==null) throw new IOException("Read "+path);
+        for(String child:children) copyAssetTree(path+"/"+child,new File(target,child));
+    }
+    private boolean isBundledGame() {
+        return game!=null && new File(game).getName().equals("bundled");
+    }
+    void library() {
+''')
+    text = replace_once(text, '        TextView title=new TextView(this);title.setText("CrySirror");title.setTextSize(30);root.addView(title);\n', '        TextView title=new TextView(this);title.setText(getString(org.crysirror.player.R.string.app_name));title.setTextSize(30);root.addView(title);\n')
+    text = replace_once(text, '        status=new TextView(this);status.setText("Choose a game folder to import into application storage.");root.addView(status);\n', '        status=new TextView(this);status.setText(isBundledGame() ? "Bundled game ready." : "Choose a game folder to import into application storage.");root.addView(status);\n')
+    text = replace_once(text, '''        importButton=button(root,"Import game folder…",()->startActivityForResult(new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION),1));
+        importButton.setEnabled(!importing);
+''', '''        if(!isBundledGame()) {
+            importButton=button(root,"Import game folder…",()->startActivityForResult(new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION),1));
+            importButton.setEnabled(!importing);
+        }
+''')
+    text = replace_once(text, '        if(game!=null) probe(play,game);\n', '        if(game!=null) probe(play,game);\n        if(bundledError!=null) status.setText(bundledError);\n')
+    text = replace_once(text, '                status.setText(info.optString("title")+" · "+info.optString("engine"));play.setEnabled(!importing);\n', '''                status.setText(info.optString("title")+" · "+info.optString("engine"));play.setEnabled(!importing);
+                if(bundledAutoPlay) {bundledAutoPlay=false;play();}
+''')
+    return text
+
+
+def build_crysirror_native(args, toolchain, workdir, abi):
+    output = workdir / 'jniLibs'
+    shutil.rmtree(output, ignore_errors=True)
+    rust_target = {'arm64-v8a': 'aarch64-linux-android', 'x86_64': 'x86_64-linux-android'}[abi]
+    if toolchain.get('rust_toolchain'):
+        run(['rustup', 'target', 'add', '--toolchain', toolchain['rust_toolchain'], rust_target])
+    else:
+        run(['rustup', 'target', 'add', rust_target])
+    env = os.environ.copy()
+    env['ANDROID_HOME'] = str(args.sdk)
+    env['ANDROID_NDK_HOME'] = str(toolchain['ndk'])
+    env['ANDROID_NDK_ROOT'] = str(toolchain['ndk'])
+    if toolchain.get('rust_toolchain'):
+        env['RUSTUP_TOOLCHAIN'] = toolchain['rust_toolchain']
+    command = [
+        'cargo', 'ndk', '--link-libcxx-shared', '-P', '28', '-t', abi, '-o', str(output),
+        'rustc', '--release', '-p', 'crysirror-mobile', '--lib', '--crate-type', 'cdylib',
+        '--', '-l', 'dylib=c++_shared',
+    ]
+    if toolchain.get('rust_toolchain'):
+        command = ['rustup', 'run', toolchain['rust_toolchain']] + command
+        env['PATH'] = str(Path.home() / '.cargo/bin') + os.pathsep + env.get('PATH', '')
+    run(command, cwd=toolchain['source'], env=env)
+    for library in ('libcrysirror_mobile.so', 'libc++_shared.so'):
+        if not (output / abi / library).is_file():
+            raise RuntimeError(f'CrySirror native library missing: {abi}/{library}')
+    tools = list((toolchain['ndk'] / 'toolchains/llvm/prebuilt').glob('*/bin/llvm-nm'))
+    if tools:
+        symbols = subprocess.check_output(
+            [str(tools[0]), '-D', '--defined-only', str(output / abi / 'libcrysirror_mobile.so')],
+            text=True
+        )
+        for method in ('initialize', 'probe', 'start', 'attach', 'detach', 'command', 'destroy'):
+            if 'Java_org_crysirror_player_Native_' + method not in symbols:
+                raise RuntimeError(f'CrySirror native library is missing JNI {method}')
+    return output
+
+
+def prepare_crysirror_project(args, toolchain, workdir, jni):
+    abi = getattr(args, 'crysirror_abi', 'arm64-v8a')
+    project = workdir / 'crysirror-android'
+    shutil.rmtree(project, ignore_errors=True)
+    shutil.copytree(
+        toolchain['source'] / 'platform/android', project,
+        ignore=shutil.ignore_patterns('.gradle', 'build', 'local.properties', '.DS_Store')
+    )
+    app = project / 'app'
+    gradle = app / 'build.gradle.kts'
+    text = gradle.read_text(encoding='utf-8')
+    text = replace_once(text, 'applicationId = "org.crysirror.player"', f'applicationId = {kotlin_string(args.application_id)}')
+    text = replace_once(text, 'versionCode = 2', 'versionCode = 1')
+    text = replace_once(text, 'versionName = "0.2.0"', 'versionName = "1.0"')
+    text = replace_once(
+        text,
+        'ndk { abiFilters += (project.findProperty("crysirrorAbis") as String? ?: "arm64-v8a").split(\',\') }',
+        f'ndk {{ abiFilters += listOf({kotlin_string(abi)}) }}'
+    )
+    text = replace_once(text, '    sourceSets { getByName("main") { jniLibs.srcDirs("../../../target/platform/android/jniLibs") } }\n', '')
+    gradle.write_text(text, encoding='utf-8')
+
+    values = app / 'src/main/res/values'
+    values.mkdir(parents=True, exist_ok=True)
+    (values / 'strings.xml').write_text(
+        '<?xml version="1.0" encoding="utf-8"?>\n<resources>\n'
+        f'    <string name="app_name">{escape(args.name)}</string>\n'
+        '</resources>\n', encoding='utf-8'
+    )
+
+    manifest = app / 'src/main/AndroidManifest.xml'
+    text = replace_once(manifest.read_text(encoding='utf-8'), 'android:label="CrySirror"', 'android:label="@string/app_name"')
+    manifest.write_text(text, encoding='utf-8')
+
+    activity = app / 'src/main/java/org/crysirror/player/MainActivity.java'
+    activity.write_text(patch_crysirror_activity(activity.read_text(encoding='utf-8')), encoding='utf-8')
+
+    assets = app / 'src/main/assets'
+    game_assets = assets / 'game'
+    game_assets.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(
+        args.source, game_assets, dirs_exist_ok=True,
+        copy_function=shutil.copy2,
+        ignore=shutil.ignore_patterns('.git', '.DS_Store')
+    )
+    licenses = assets / 'licenses'
+    licenses.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(toolchain['source'] / 'LICENSE', licenses / 'CrySirror-MPL-2.0.txt')
+    for name in ('NOTICE.md', 'NOTICE'):
+        notice = toolchain['source'] / name
+        if notice.is_file():
+            shutil.copy2(notice, licenses / name)
+            break
+
+    jni_dir = app / 'src/main/jniLibs'
+    jni_dir.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(jni / abi, jni_dir / abi, dirs_exist_ok=True)
+    (project / 'local.properties').write_text(f'sdk.dir={args.sdk}\n', encoding='utf-8')
+    (project / 'gradle.properties').write_text(
+        'org.gradle.jvmargs=-Xmx4g\nandroid.useAndroidX=true\n', encoding='utf-8'
+    )
+    return project
+
+
+def build_crysirror_apk(args, project, gradle):
+    env = os.environ.copy()
+    env['JAVA_HOME'] = str(args.java_home)
+    env['ANDROID_HOME'] = str(args.sdk)
+    gradle_home = args.out / '.android-port-cache/gradle9'
+    gradle_home.mkdir(parents=True, exist_ok=True)
+    env['GRADLE_USER_HOME'] = str(gradle_home)
+    run([gradle, '-p', project, '--no-daemon', ':app:assembleDebug'], env=env)
+    apk = project / 'app/build/outputs/apk/debug/app-debug.apk'
+    if not apk.is_file():
+        raise RuntimeError(f'CrySirror APK not produced: {apk}')
+    return apk
+
+
+def verify_crysirror_apk(args, apk, abi):
+    verify(args, apk)
+    with zipfile.ZipFile(apk) as archive:
+        names = set(archive.namelist())
+        for library in ('libcrysirror_mobile.so', 'libc++_shared.so'):
+            if f'lib/{abi}/{library}' not in names:
+                raise RuntimeError(f'CrySirror APK is missing lib/{abi}/{library}')
+        if not any(name.startswith('assets/game/') for name in names):
+            raise RuntimeError('CrySirror APK is missing bundled game data')
+
+
+def run_crysirror_pipeline(args):
+    if not args.source.is_dir():
+        raise RuntimeError(f'Source directory not found: {args.source}')
+    abi = getattr(args, 'crysirror_abi', 'arm64-v8a')
+    print(json.dumps({
+        'source': str(args.source), 'engine': 'crysirror', 'name': args.name,
+        'application_id': args.application_id, 'abi': abi,
+    }, ensure_ascii=False, indent=2))
+    workdir = args.out / '.crysirror-work'
+    shutil.rmtree(workdir, ignore_errors=True)
+    workdir.mkdir(parents=True, exist_ok=True)
+    args.out.mkdir(parents=True, exist_ok=True)
+    if args.dry_run:
+        stage = workdir / 'game'
+        shutil.copytree(
+            args.source, stage, dirs_exist_ok=True, copy_function=shutil.copy2,
+            ignore=shutil.ignore_patterns('.git', '.DS_Store')
+        )
+        print(f'Dry run complete. Staged CrySirror game: {stage}')
+        return
+    toolchain = ensure_crysirror_toolchain(args)
+    if getattr(args, 'crysirror_skip_native', False):
+        jni = workdir / 'jniLibs'
+        for library in ('libcrysirror_mobile.so', 'libc++_shared.so'):
+            if not (jni / abi / library).is_file():
+                raise RuntimeError(f'Prebuilt CrySirror native library missing: {jni / abi / library}')
+    else:
+        jni = build_crysirror_native(args, toolchain, workdir, abi)
+    project = prepare_crysirror_project(args, toolchain, workdir, jni)
+    apk = build_crysirror_apk(args, project, toolchain['gradle'])
+    verify_crysirror_apk(args, apk, abi)
+    final = args.out / f'{args.name}-CrySirror.apk'
+    temporary = final.with_name(final.name + '.tmp')
+    temporary.unlink(missing_ok=True)
+    shutil.move(str(apk), temporary)
+    os.replace(temporary, final)
+    print(f'APK={final}')
+    print(f'SHA256={sha256(final)}')
+    print('Scope=CrySirror native Android runtime; build/signature verified; headless preflight not applicable')
+    if REMEDIATION:
+        print(f'Remediation ({len(REMEDIATION)}):')
+        for item in REMEDIATION:
+            print(f'  - {item}')
+    if not args.keep_work:
+        shutil.rmtree(workdir)
 
 
 def build(args, workdir, engine):
@@ -1878,14 +2372,14 @@ def find_gradle():
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description='Package HTML5 / RPG Maker MV/MZ / Electron games into a single Android APK.',
+        description='Package HTML5 / RPG Maker MV/MZ / Electron / supported VN games into a single Android APK.',
         epilog='One command: python3 pc2android.py /path/to/game'
     )
     parser.add_argument('--source', required=True, type=Path, help='Game folder or data_Win/www folder')
     parser.add_argument('--name', required=True, help='Display name used for APK filename and Android label')
     parser.add_argument('--application-id', required=True, help='Android package id, e.g. com.example.game')
     parser.add_argument('--out', type=Path, default=Path('.'), help='Output directory (default: current directory)')
-    parser.add_argument('--engine', choices=['auto', 'rmmz', 'rmmv', 'nwjs', 'electron'], default='auto')
+    parser.add_argument('--engine', choices=['auto', 'rmmz', 'rmmv', 'nwjs', 'electron', 'crysirror'], default='auto')
     parser.add_argument('--dry-run', action='store_true', help='Only detect and stage files, do not build APK')
     parser.add_argument('--preflight', action='store_true', help='Validate packaged scenes and saves in headless Chromium')
     parser.add_argument('--browser', type=Path, help='Chrome or Chromium executable used by --preflight')
@@ -1897,9 +2391,20 @@ def parse_args():
     args = parser.parse_args()
     args.source = args.source.expanduser().resolve()
     args.out = args.out.expanduser().resolve()
+    args.crysirror_source = Path(
+        os.environ.get('CRYSIRROR_SOURCE') or (TOOLCHAIN_HOME / 'crysirror')
+    ).expanduser()
+    args.crysirror_abi = os.environ.get('CRYSIRROR_ABI', 'arm64-v8a')
+    args.crysirror_gradle = (
+        Path(os.environ['CRYSIRROR_GRADLE']).expanduser()
+        if os.environ.get('CRYSIRROR_GRADLE') else None
+    )
+    args.crysirror_skip_native = False
     args.sdk = Path(args.sdk).expanduser().resolve() if args.sdk else None
     args.java_home = Path(args.java_home).expanduser().resolve() if args.java_home else None
     args.gradle = Path(args.gradle).expanduser().resolve() if args.gradle else None
+    args.crysirror_source = Path(args.crysirror_source).expanduser().resolve() if args.crysirror_source else None
+    args.crysirror_gradle = Path(args.crysirror_gradle).expanduser().resolve() if args.crysirror_gradle else None
     if args.dry_run and args.preflight:
         parser.error('--preflight cannot be combined with --dry-run')
     if args.preflight:
@@ -1907,7 +2412,11 @@ def parse_args():
     if not args.application_id or not re.fullmatch(r'[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)+', args.application_id):
         parser.error('--application-id must be a valid Java package name')
     if not args.dry_run:
-        toolchain = ensure_toolchain(need_browser=args.preflight)
+        requested = detect_engine(args.source) if args.engine == 'auto' else args.engine
+        toolchain = ensure_toolchain(
+            need_browser=args.preflight,
+            need_gradle=requested != 'crysirror'
+        )
         args.sdk = args.sdk or toolchain['sdk']
         args.java_home = args.java_home or toolchain['java_home']
         args.gradle = args.gradle or toolchain['gradle']
@@ -2072,8 +2581,10 @@ def run_pipeline(args):
     if not args.source.is_dir():
         raise RuntimeError(f'Source directory not found: {args.source}')
     engine = detect_engine(args.source) if args.engine == 'auto' else args.engine
+    if engine == 'crysirror':
+        return run_crysirror_pipeline(args)
     if engine in ('windows', 'unknown'):
-        raise RuntimeError('This tool currently handles RPG Maker MV/MZ, NW.js and Electron HTML5 games. Use Ludashi/Winlator for QLIE or other Windows-only engines.')
+        raise RuntimeError('This tool handles RPG Maker MV/MZ, NW.js, Electron and CrySirror-supported VN engines. Use Winlator for unsupported Windows-native engines.')
     print(json.dumps({'source': str(args.source), 'engine': engine, 'name': args.name, 'application_id': args.application_id}, ensure_ascii=False, indent=2))
     workdir = args.out / '.android-port-work'
     if workdir.exists():
@@ -2332,7 +2843,7 @@ def install_chrome(home):
     return binary
 
 
-def ensure_toolchain(need_browser=True):
+def ensure_toolchain(need_browser=True, need_gradle=True):
     TOOLCHAIN_HOME.mkdir(parents=True, exist_ok=True)
     try:
         java_home = find_java_home()
@@ -2342,10 +2853,12 @@ def ensure_toolchain(need_browser=True):
         sdk = find_sdk()
     except RuntimeError:
         sdk = install_android_sdk(TOOLCHAIN_HOME)
-    try:
-        gradle = find_gradle()
-    except RuntimeError:
-        gradle = install_gradle(TOOLCHAIN_HOME)
+    gradle = None
+    if need_gradle:
+        try:
+            gradle = find_gradle()
+        except RuntimeError:
+            gradle = install_gradle(TOOLCHAIN_HOME)
     browser = None
     if need_browser:
         try:
@@ -2378,11 +2891,15 @@ def one_command(project, cheat=False):
     if not project.is_dir():
         raise RuntimeError(f'Project directory not found: {project}')
     name, application_id = derive_identity(project)
-    toolchain = ensure_toolchain(need_browser=True)
+    engine = detect_engine(project)
+    toolchain = ensure_toolchain(
+        need_browser=engine != 'crysirror',
+        need_gradle=engine != 'crysirror'
+    )
     args = types.SimpleNamespace(
         source=project, name=name, application_id=application_id, out=Path.cwd(),
-        engine='auto', dry_run=False, preflight=True, browser=toolchain.get('browser'), keep_work=False,
-        cheat=cheat, sdk=toolchain['sdk'], java_home=toolchain['java_home'], gradle=toolchain['gradle'],
+        engine=engine, dry_run=False, preflight=True, browser=toolchain.get('browser'), keep_work=False,
+        cheat=cheat, sdk=toolchain['sdk'], java_home=toolchain['java_home'], gradle=toolchain.get('gradle'),
     )
     run_pipeline(args)
 
