@@ -1,197 +1,141 @@
-# pc2android
+# game-pc2and
 
-Package PC HTML5 / RPG Maker MV/MZ (NW.js) / Electron games into a **single Android APK**.
+**Turn PC games into one Android APK — with one command.**  
+PC-to-Android packaging for RPG Maker MV/MZ, NW.js and Electron games: automatic dependency setup, build verification, touch controls, an optional translucent virtual keyboard and optional cheats.
 
-One command, one argument. Missing JDK, Android SDK components, Gradle, Chrome for Testing and Python dependencies are downloaded, installed and verified automatically. Build, signature/alignment/CRC verification, local preflight and missing-asset repair run as one pipeline.
+[![CI](https://github.com/SpellingDragon/game-pc2and/actions/workflows/ci.yml/badge.svg)](https://github.com/SpellingDragon/game-pc2and/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-[中文](README.md)
+[中文](README.md) · [Latest release](https://github.com/SpellingDragon/game-pc2and/releases/latest) · [Watch the 28-second demo](https://github.com/SpellingDragon/game-pc2and/releases/latest/download/game-pc2and-demo.mp4)
+
+![game-pc2and hero](docs/images/hero.png)
+
+## See it in 30 seconds
+
+![Build and gameplay demo](docs/images/demo-preview.gif)
+
+[Watch the full demo video (real build logs, virtual keyboard, 3D camera and verification report)](https://github.com/SpellingDragon/game-pc2and/releases/latest/download/game-pc2and-demo.mp4)
 
 ## One command
 
-The repository ships the tool only as an Agent Skill. After mounting:
+### Option 1: use it as an Agent Skill
+
+```bash
+git clone https://github.com/SpellingDragon/game-pc2and.git
+cd game-pc2and
+mkdir -p ~/.qoder/skills
+cp -R skills/pc2android ~/.qoder/skills/
+```
+
+Reload skills in Qoder, then:
 
 ```text
 /pc2android /path/to/game
 ```
 
-You can also run the script inside the skill directly:
+For Claude Code, copy `skills/pc2android` to `~/.claude/skills/`. Other Agent Skills-compatible agents can mount the same directory according to their documentation.
+
+### Option 2: run the script directly
 
 ```bash
 python3 skills/pc2android/scripts/pc2android.py /path/to/game
 ```
 
-Optional cheat (RPG Maker data only):
+On the first run, missing JDK, Android SDK components, Gradle, Chrome for Testing and Python dependencies are downloaded, installed and verified automatically. You need network access and a few GB of free disk space.
 
-```bash
-python3 skills/pc2android/scripts/pc2android.py /path/to/game --cheat
-```
+## What you get
 
-It automatically:
-
-- detects RPG Maker MZ/MV (NW.js) and Electron (asar) projects
-- derives the app name and package id from `index.html` / `package.json`
-- installs a missing toolchain into `~/.pc2android/` (`PC2ANDROID_HOME` overrides it) and verifies every component
-- generates mipmaps, an Android 8+ adaptive icon and a round icon
-- builds the APK, then verifies it with `apksigner`, `zipalign` and a full ZIP CRC test
-- serves assets directly from the built APK and drives Chromium through CDP for the local preflight
-- repairs missing assets that exist elsewhere in the source tree, rebuilds and re-runs the preflight
-- **emits the APK only when everything passes**; any failure exits non-zero and never replaces an older APK
+- **One self-contained APK** — no OBB, no manual extraction.
+- **A playable touch build** — menu/ADV games stay touch-friendly; MZ3D and other input-rich games get a translucent virtual keyboard.
+- **A verification report** — startup, title/map, images, WebGL, fonts and save/load round-trip.
+- **Optional cheats** — negative item prices, `-0` for zero prices, prepended enemy EXP, plus a custom Electron price adapter.
 
 Output is written to the current directory:
 
-```
-<app-name>-WebView.apk
-<app-name>-preflight/report.json
-<app-name>-preflight/title.png
-<app-name>-preflight/map.png
-```
-
-## Pipeline
-
-```mermaid
-flowchart TD
-    A(["Project path"]) --> B["Check/install Python deps"]
-    B --> C["Check/install toolchain<br/>JDK 17 · Android 36 · build-tools 36.0.0<br/>Gradle 8.14.5 · Chrome for Testing"]
-    C --> C1{"Install/verify passed?"}
-    C1 -->|"yes"| D{"Detect engine"}
-    C1 -->|"still failing after retries"| Z(["exit non-zero<br/>keep old APK + report"])
-    D -->|"RPG Maker MZ/MV · NW.js"| E["Stage web assets"]
-    D -->|"Electron asar"| F["Extract base.asar / app.asar"]
-    D -->|"Windows-native"| X["exit non-zero<br/>suggest Winlator"]
-    E --> G["Compatibility fixes"]
-    F --> G
-    G --> G1["Node shim + asset-index"]
-    G --> G2["Split tall encrypted images"]
-    G --> G3["Adaptive icons"]
-    G --> G4["--cheat: negate item prices / prepend 1 to enemy exp"]
-    G --> G5["Input profile touch/rich<br/>rich → translucent virtual keyboard"]
-    G1 --> H["Build APK"]
-    G2 --> H
-    G3 --> H
-    H --> I["apksigner · zipalign · ZIP CRC"]
-    I --> J["Serve from APK<br/>Chromium local preflight"]
-    J --> K{"All passed?"}
-    K -->|"yes"| L(["exit 0<br/>APK + report + remediation"])
-    K -->|"no"| M{"404 and file exists in source?"}
-    M -->|"yes"| O["Copy into package"]
-    M -->|"no"| Z
-    O --> P["Rebuild APK"]
-    P --> I
-```
-
-A missing toolchain is installed and verified before the build (downloads retry three times). A failed preflight is auto-repaired only when the missing file exists in the source tree; otherwise the tool exits non-zero. Every automatic action is recorded in the `remediation` field of `report.json`.
-
-## Use as an Agent Skill
-
-`skills/pc2android/` follows the Agent Skills `SKILL.md` convention and can be mounted by any compatible agent. Qoder example:
-
-```bash
-git clone https://github.com/SpellingDragon/pc2android.git
-cd pc2android
-mkdir -p ~/.qoder/skills
-cp -R skills/pc2android ~/.qoder/skills/
-```
-
-Run `/skills reload` in Qoder, then:
-
 ```text
-/pc2android /path/to/game
+<game-name>-WebView.apk
+<game-name>-preflight/report.json
+<game-name>-preflight/title.png / map.png
 ```
 
-Claude Code example:
+## Why it is beginner-friendly
 
-```bash
-mkdir -p ~/.claude/skills
-cp -R skills/pc2android ~/.claude/skills/
-```
+| You do not have to solve | The tool handles it |
+|---|---|
+| Installing JDK, SDK, Gradle and Chrome | Downloads, installs and verifies missing tools |
+| Detecting the engine and entry point | RPG Maker MZ/MV, NW.js and Electron detection |
+| Encrypted assets and plugin compatibility | Automatic compatibility fixes |
+| Playing keyboard-heavy games on a phone | A translucent virtual keyboard for rich-input games |
+| Knowing whether the APK really boots | Chromium preflight served directly from the APK |
+| Finding cheatable data | Keyword scan with candidate files in the error report |
 
-In Claude Code, invoke `/pc2android /path/to/game` or trigger it with natural language.
+## Screenshots
 
-Project-level: copy `skills/pc2android` into the project's skills directory (for example `.qoder/skills/`, `.claude/skills/`). For other agents, copy the same directory to their skill location.
+### Translucent virtual keyboard
 
-## Cheat option (optional)
+Hold = keydown, release = keyup, multi-touch, hide toggle and opacity control.
 
-RPG Maker MV/MZ uses the standard data files; custom Electron engines (for example Bitter Sweets Endroll) use a dedicated adapter for `window.__GAME_DATA__`.
+![Translucent virtual keyboard](docs/images/virtual-keyboard.png)
 
-- `data/Items.json`: positive `price` becomes negative; `price == 0` becomes `-0`; already negative values are unchanged.
-- `data/Enemies.json`: when `exp != 0`, prepend `1` to the decimal value (50→150, 5→15, 100→1100); `exp == 0` is unchanged.
-- Only the staged copy is modified; the source game files are never touched. Hard links are broken with a temporary file + atomic replace. Counts are written to the `cheat` field of `report.json`.
-- Custom Electron engines: recursively patch every `price` in `window.__GAME_DATA__` with the same rules; these engines usually have no enemy `exp` field.
-- When no supported data is found, the script scans assets for `price / exp / gold / item / shop / enemy / 所持金 / 価格 / 経験値`, lists candidate files in the error and records them under `cheat.candidates`.
-- Projects without RPG Maker data or `__GAME_DATA__` print a skip message and build normally.
+### Real verification report
 
-## Input profile and virtual keyboard
+![Verification report](docs/images/preflight.png)
 
-Each build writes `input-profile.json`:
-
-- `touch`: menu/ADV/turn-based games or games already covered by touch buttons (PrisonBrave, Bitter), no overlay.
-- `rich`: games with continuous input, pointer lock or many custom keys without touch coverage (Shadowfall); the APK gets a translucent virtual keyboard.
-
-When MZ3D and MessageSkip are both present, the MessageSkip auto key is remapped from A to M so it is not shadowed by MZ3D movement (recorded in `remediation`).
-
-Holding a button sends `keydown`, releasing sends `keyup`, with multi-touch support. Events carry `key`, `code`, `keyCode` and `which` so both MZ Input and `KeyboardEvent.code` listeners work. The keyboard can be hidden, its opacity adjusted, and all keys are released on blur/background. The preflight report includes `inputProfile` (class/evidence/entropy/recommended_keys).
-
-## Success contract: exhaust automatic repair before failing
-
-Exit code 0 means everything passed, but the tool does not hand solvable problems back to the user. Before declaring failure it completes this ladder:
-
-1. **Missing toolchain**: download and install JDK 17, Android platform 36, build-tools 36.0.0, Gradle 8.14.5 and Chrome for Testing; retry downloads three times; support authenticated proxies; verify every component.
-2. **Missing Python dependencies**: create `~/.pc2android/venv` and re-exec.
-3. **Preflight 404**: search the source tree by the same path, encrypted variant, same filename and alternate roots (including Electron asar extractions); copy the file into the package.
-4. **After repair**: rebuild the APK, re-run signing/alignment/CRC and the preflight, up to two passes.
-5. **Transient network/service failures**: retry; reuse installed components.
-6. **Still failing**: exit non-zero, keep `report.json`, logs and the old APK; never emit a partial or conditional success.
-
-Every action is recorded in `report.json` under `remediation` and printed as a `Remediation (N)` list.
-
-Final gate (all must hold for exit 0):
-
-- Build, `apksigner`, `zipalign` and full ZIP CRC verification pass
-- The preflight reaches the title/map; images are ready; no image, WebGL or JavaScript errors; fonts are ready
-- Every packaged asset request is served; a packaged asset that returns 404 is a failure
-- Save → load → remove round-trip succeeds
-- Electron mode finishes startup, has the correct stage scale and passes a localStorage round-trip
-
-The only tolerated case: a requested file does not exist anywhere in the source game (the game's own optional probe). This is not a packaging defect — the file was never in the package. If it exists elsewhere in the source tree, the tool copies it into the package and rebuilds.
-
-## Automatic installation
-
-Missing components are installed into `~/.pc2android/` and verified:
-
-| Component | Version | Source / check |
-|---|---|---|
-| JDK | Temurin 17 | Adoptium API, `java -version` ≥ 17 |
-| Android platform | 36 | Google repository XML, SHA-1 verified |
-| build-tools | 36.0.0 | Same, `aapt2` executable |
-| Gradle | 8.14.5 | services.gradle.org, `gradle --version` |
-| Chrome for Testing | 133.0.6943.141 | Chrome for Testing, executable |
-| Python deps | Pillow, websocket-client | `~/.pc2android/venv` |
-
-Downloads use the system `curl` and honor `HTTPS_PROXY` / `HTTP_PROXY`, including authenticated proxies. Installation is idempotent.
-
-## Supported engines
+## Supported games
 
 | Engine | Status |
 |---|---|
 | RPG Maker MZ | verified |
 | RPG Maker MV | verified |
 | NW.js | verified |
-| Electron (base.asar + app.asar) | verified (one player adapter) |
-| Windows-native engines (QLIE, KiriKiri, ...) | not supported; use Winlator |
+| Electron (asar) | verified |
+| Windows-native engines (QLIE, KiriKiri, ...) | use Winlator instead |
 
-## How it works
+## How it works, briefly
 
-1. **Engine detection and safe staging** — copies only the web runtime; large media is hard-linked, the `js/` tree is copied so plugin rewrites never touch the source game.
-2. **Node shim and `asset-index.json`** — provides `require('fs')` for NW.js-oriented plugins; `fs.accessSync` answers from a generated asset index instead of spawning thousands of probes.
-3. **Encrypted long-image splitting** — encrypted PNGs referenced by `plugins.js` taller than 2048 px are split, re-encrypted and the plugin parameters rewritten.
-4. **Adaptive icons** — picks the largest source icon, generates mipmaps, `anydpi-v26` adaptive icons and round icons with a dominant-color background.
-5. **APK-served preflight** — serves assets straight from the APK zip entries (Range/HEAD, keep-alive, encrypted-suffix MIME) and drives Chromium via CDP.
-6. **Repair loop** — a 404 triggers a source-tree search (same path, encrypted variant, same filename), copies the file into the staged assets, rebuilds and re-runs the preflight, up to two passes.
-7. **Determinism and atomic artifacts** — identical input produces an identical APK hash; the final APK is replaced only after verification and preflight pass.
+1. Detect the engine and stage the web runtime.
+2. Apply compatibility fixes for Node APIs, keyboard mappings and encrypted images.
+3. Build a single Android WebView APK with adaptive launcher icons.
+4. Serve assets directly from the APK and run a Chromium preflight.
+5. Analyze input needs and add touch controls or a virtual keyboard.
 
-## Advanced usage
+<details>
+<summary>Pipeline diagram</summary>
 
-The one-command mode is the default. For full control:
+```mermaid
+flowchart TD
+    A(["Project path"]) --> B["Install/verify dependencies"]
+    B --> C{"Detect engine"}
+    C --> D["Stage + compatibility fixes"]
+    D --> E["Input profile touch/rich"]
+    E --> F["Build APK + icons"]
+    F --> G["Sign/align/CRC verification"]
+    G --> H["APK-served preflight"]
+    H --> I{"All passed?"}
+    I -->|"yes"| J(["APK + report"])
+    I -->|"repairable"| K["Repair and rebuild"]
+    K --> G
+    I -->|"still failing"| Z(["Non-zero exit, keep old APK"])
+```
+
+</details>
+
+## Success means success
+
+Exit code 0 means build, signing, alignment, CRC, images, WebGL, fonts, packaged-asset serving and save/load verification all passed. The tool automatically installs dependencies and repairs missing assets before failing; it never leaves a partial or conditional success.
+
+## Optional cheats
+
+```bash
+python3 skills/pc2android/scripts/pc2android.py /path/to/game --cheat
+```
+
+- RPG Maker: positive `price` becomes negative, `price == 0` becomes `-0`; nonzero enemy `exp` gets a leading `1`.
+- Custom Electron engines such as Bitter Sweets Endroll: recursively patch `price` in `window.__GAME_DATA__`.
+- Only staged data is changed; source game files are untouched. Counts are written to `report.json` under `cheat`.
+
+<details>
+<summary>Advanced options and troubleshooting</summary>
 
 ```bash
 python3 skills/pc2android/scripts/pc2android.py \
@@ -205,18 +149,20 @@ python3 skills/pc2android/scripts/pc2android.py \
 - `--engine auto|rmmz|rmmv|nwjs|electron`
 - `--dry-run` — detect and stage only
 - omit `--preflight` — build and verify without the browser run
-- `--browser` — explicit Chromium/Chrome path
-- `--cheat` — enable the RPG Maker cheat (negative item prices, prepended enemy exp)
+- `--browser <path>` — explicit Chromium path
 - `--keep-work` — keep the generated Android project
 
-## Known limitations
+For failures, inspect `failures`, `cheat.candidates`, `suggestions` and `remediation` in `report.json`. For download errors, check `HTTPS_PROXY` and curl, then rerun.
 
-- The preflight runs desktop Chromium, not Android WebView or a device GPU; real-device installation is the final acceptance.
-- Electron support is one player adapter (`GameMain.html` + `base.asar`); other Electron shells may need adjustment.
-- On Windows, use WSL (downloads and paths are POSIX-oriented).
-- Icon sharpness is limited by the source icon (for example a 128 px icon).
-- APKs close to 3 GB depend on device storage and installer speed.
-- No game content is included and no DRM is bypassed; only package games you own or are authorized to distribute.
+</details>
+
+## FAQ
+
+**Do I need root?** No.  
+**Do I need Android Studio?** No, SDK components are installed automatically.  
+**Does it support every PC game?** No, it currently targets HTML5, RPG Maker MV/MZ, NW.js and Electron games.  
+**Are game assets included?** No. The repository contains only the tool and documentation; package only games you own or are authorized to distribute.  
+**Does the virtual keyboard play for me?** No, it only translates touch into game key events.
 
 ## License
 
