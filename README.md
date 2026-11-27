@@ -68,10 +68,10 @@ python3 skills/pc2android/scripts/pc2android.py /path/to/game
 | RPG Maker MV | 已验证 |
 | NW.js 网页游戏 | 已验证 |
 | Electron（asar） | 已验证 |
-| CrySirror 原生 VN 引擎（KiriKiri、Siglus、RealLive 等） | 实验性，首次运行自动准备 Rust/NDK |
+| CrySirror 原生 VN 引擎（KiriKiri、Siglus、RealLive 等） | 原生后端，按引擎验证；首次运行自动准备 Rust/NDK |
 | 其他 Windows 原生引擎 | 建议 Winlator |
 
-## CrySirror 原生后端（实验性）
+## CrySirror 原生后端
 
 使用方式不变：
 
@@ -130,6 +130,6 @@ python3 skills/pc2android/scripts/pc2android.py \
 
 ## License
 
-MIT，见 [LICENSE](LICENSE)。第三方致谢见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+MIT，见 [LICENSE](LICENSE)。CrySirror 组件为 MPL-2.0，源码 commit、修改说明和许可证随 APK 放在 `assets/licenses/`；第三方致谢见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 
 RPG Maker 是 Gotcha Gotcha Games 的商标；Android 是 Google LLC 的商标。本项目与上述组织无关联。

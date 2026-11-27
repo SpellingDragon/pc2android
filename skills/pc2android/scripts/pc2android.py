@@ -1494,6 +1494,57 @@ def build_crysirror_native(args, toolchain, workdir, abi):
     return output
 
 
+def write_crysirror_source_notice(source, licenses):
+    def git(*args):
+        try:
+            return subprocess.check_output(
+                ['git', '-C', str(source), *args], text=True, stderr=subprocess.DEVNULL, timeout=30
+            ).strip()
+        except (OSError, subprocess.SubprocessError):
+            return ''
+    origin = git('remote', 'get-url', 'fork') or git('remote', 'get-url', 'origin')
+    if origin.startswith('git@github.com:'):
+        origin = 'https://github.com/' + origin.split(':', 1)[1]
+    origin = origin.removesuffix('.git')
+    commit = git('rev-parse', 'HEAD')
+    branch = git('branch', '--show-current')
+    subject = git('log', '-1', '--format=%s')
+    changed = git('status', '--porcelain')
+    modifications = []
+    if subject and ('QLIE' in subject or 'sound replacement' in subject):
+        modifications.append('crates/crysirror-qlie/src/adapter/objects.rs — QLIE ls fallback when no animation bundle exists')
+    if changed:
+        modifications.extend(line[3:] for line in changed.splitlines() if line[3:])
+    if not modifications:
+        modifications = ['None (upstream source)']
+    source_url = f'{origin}/tree/{commit}' if origin and commit else origin or 'unknown'
+    text = f'''CrySirror source and modification notice
+
+Upstream: https://github.com/xmoezzz/CrySirror
+Source: {origin or 'unknown'}
+Branch: {branch or 'unknown'}
+Commit: {commit or 'unknown'}
+Commit subject: {subject or 'unknown'}
+License: MPL-2.0 (see CrySirror-MPL-2.0.txt)
+
+Local modifications:
+''' + '\n'.join(f'  - {item}' for item in modifications) + f'''
+
+Modification source:
+  {source_url}
+
+Upstream PR:
+  https://github.com/xmoezzz/CrySirror/pull/21
+'''
+    (licenses / 'CRYIRROR-SOURCE.txt').write_text(text, encoding='utf-8')
+    (licenses / 'CRYIRROR-THIRD-PARTY.txt').write_text(
+        'CrySirror includes third-party components under their own licenses.\n'
+        f'The corresponding license texts are in the CrySirror source tree:\n  {source_url}\n'
+        'This APK includes the CrySirror MPL-2.0 license in CrySirror-MPL-2.0.txt.\n',
+        encoding='utf-8'
+    )
+
+
 def prepare_crysirror_project(args, toolchain, workdir, jni):
     abi = getattr(args, 'crysirror_abi', 'arm64-v8a')
     template = Path(__file__).resolve().parent.parent / 'templates/crysirror-host'
@@ -1527,6 +1578,10 @@ def prepare_crysirror_project(args, toolchain, workdir, jni):
         if notice.is_file():
             shutil.copy2(notice, licenses / name)
             break
+    write_crysirror_source_notice(toolchain['source'], licenses)
+    project_notices = Path(__file__).resolve().parents[3] / 'THIRD_PARTY_NOTICES.md'
+    if project_notices.is_file():
+        shutil.copy2(project_notices, licenses / 'THIRD_PARTY_NOTICES.txt')
 
     jni_dir = app / 'src/main/jniLibs'
     jni_dir.mkdir(parents=True, exist_ok=True)

@@ -68,10 +68,10 @@ The APK is emitted only on exit code 0. On failure, inspect `failures`, `suggest
 | RPG Maker MV | verified |
 | NW.js | verified |
 | Electron (asar) | verified |
-| CrySirror native VN engines (KiriKiri, Siglus, RealLive, ...) | experimental; Rust/NDK prepared automatically |
+| CrySirror native VN engines (KiriKiri, Siglus, RealLive, ...) | native backend, verified per engine; Rust/NDK prepared automatically |
 | Other Windows-native engines | use Winlator instead |
 
-## CrySirror native backend (experimental)
+## CrySirror native backend
 
 The command stays the same:
 
@@ -130,6 +130,6 @@ For download errors, check `HTTPS_PROXY` and curl, then rerun.
 
 ## License
 
-MIT, see [LICENSE](LICENSE). Third-party notices: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+MIT, see [LICENSE](LICENSE). CrySirror components are MPL-2.0; the source commit, modification notice and license are included in the APK under `assets/licenses/`. Third-party notices: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 RPG Maker is a trademark of Gotcha Gotcha Games Corporation. Android is a trademark of Google LLC. This project is not affiliated with or endorsed by them.

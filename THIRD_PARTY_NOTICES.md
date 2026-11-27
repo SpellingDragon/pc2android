@@ -15,7 +15,9 @@ No source code from these projects is included in this repository. Their
 license texts remain with their respective repositories. CrySirror source is
 fetched at build time; its MPL-2.0 license and available notices are copied into
 the APK under `assets/licenses/`. The host template's `Native.java` is copied
-from CrySirror's Android JNI binding and remains MPL-2.0.
+from CrySirror's Android JNI binding and remains MPL-2.0. The APK includes
+`assets/licenses/CRYIRROR-SOURCE.txt` with the exact source commit, branch and
+local modifications for the CrySirror engine.
 
 ## Trademarks
 
