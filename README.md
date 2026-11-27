@@ -25,17 +25,15 @@ PC 游戏转 Android、RPG Maker MV/MZ 转 APK、NW.js / Electron 移植，都�
 ```bash
 git clone https://github.com/SpellingDragon/game-pc2and.git
 cd game-pc2and
-mkdir -p ~/.qoder/skills
-cp -R skills/pc2android ~/.qoder/skills/
 ```
 
-在 Qoder 中 `/skills reload`，然后：
+把 `skills/pc2android` 复制到你的 Agent 的用户级或项目级 skills 目录，重新加载 skills 后：
 
 ```text
 /pc2android /path/to/game
 ```
 
-Claude Code 则复制到 `~/.claude/skills/`；其他兼容 Agent Skills 的 Agent 按其文档挂载同一目录。
+不同 Agent 的 skills 目录位置不同，按其文档挂载同一目录即可。
 
 ### 方式二：直接运行脚本
 
@@ -60,7 +58,7 @@ python3 skills/pc2android/scripts/pc2android.py /path/to/game
 <游戏名>-preflight/title.png / map.png
 ```
 
-## 为什么适合小白
+## 为什么省心
 
 | 你不用再操心 | 工具会自动做 |
 |---|---|

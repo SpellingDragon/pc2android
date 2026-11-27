@@ -23,17 +23,15 @@ PC-to-Android packaging for RPG Maker MV/MZ, NW.js and Electron games: automatic
 ```bash
 git clone https://github.com/SpellingDragon/game-pc2and.git
 cd game-pc2and
-mkdir -p ~/.qoder/skills
-cp -R skills/pc2android ~/.qoder/skills/
 ```
 
-Reload skills in Qoder, then:
+Copy `skills/pc2android` into your agent's user-level or project-level skills directory and reload skills, then:
 
 ```text
 /pc2android /path/to/game
 ```
 
-For Claude Code, copy `skills/pc2android` to `~/.claude/skills/`. Other Agent Skills-compatible agents can mount the same directory according to their documentation.
+Skill directory locations vary by agent; mount the same directory according to your agent's documentation.
 
 ### Option 2: run the script directly
 
@@ -58,7 +56,7 @@ Output is written to the current directory:
 <game-name>-preflight/title.png / map.png
 ```
 
-## Why it is beginner-friendly
+## Why it is easy to use
 
 | You do not have to solve | The tool handles it |
 |---|---|
