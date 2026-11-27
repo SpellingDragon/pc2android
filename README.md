@@ -16,6 +16,14 @@ RPG Maker MV/MZ · NW.js · Electron · 自动环境 · 自动验证 · 虚拟�
 
 [完整演示视频（真实构建日志、虚拟键盘、3D 镜头与预检报告）](https://github.com/SpellingDragon/game-pc2and/releases/latest/download/game-pc2and-demo.mp4)
 
+当前视频为 APK 桌面预检运行画面。手机开启 USB 调试并连接后，可录制实机片段：
+
+```bash
+bash docs/device-demo.sh /path/to/Game-WebView.apk
+```
+
+脚本会安装并启动 APK、录制屏幕、拉回 `device-demo.mp4`。
+
 ## 使用
 
 ### 作为 Agent Skill

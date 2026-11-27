@@ -16,6 +16,14 @@ RPG Maker MV/MZ · NW.js · Electron · automatic setup · verification · virtu
 
 [Full demo video (real build logs, virtual keyboard, 3D camera and verification report)](https://github.com/SpellingDragon/game-pc2and/releases/latest/download/game-pc2and-demo.mp4)
 
+The current video shows the APK running in the desktop preflight. With a USB-debug-enabled phone connected, record a device clip with:
+
+```bash
+bash docs/device-demo.sh /path/to/Game-WebView.apk
+```
+
+The script installs and launches the APK, records the screen and pulls back `device-demo.mp4`.
+
 ## Usage
 
 ### As an Agent Skill
