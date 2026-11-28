@@ -294,7 +294,14 @@ class GodotBackendTests(unittest.TestCase):
             godot.managed_template_dir('/tmp/tools', '4.7.2'),
             Path('/tmp/tools/godot/export_templates/4.7.2.stable'),
         )
-        self.assertIn('macos.universal', godot.editor_asset_name('4.7.2'))
+        with mock.patch.object(godot.platform, 'system', return_value='Darwin'):
+            self.assertIn('macos.universal', godot.editor_asset_name('4.7.2'))
+        with mock.patch.object(godot.platform, 'system', return_value='Linux'), \
+                mock.patch.object(godot.platform, 'machine', return_value='x86_64'):
+            self.assertEqual(
+                godot.editor_asset_name('4.7.2'),
+                'Godot_v4.7.2-stable_linux.x86_64.zip',
+            )
 
     def test_engine_version_reconciliation_prefers_matching_pack_and_project(self):
         project = self.root / 'project'
