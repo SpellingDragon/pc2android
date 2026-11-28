@@ -13,7 +13,12 @@ jobs:
         with:
           python-version: '3.11'
       - run: python -m pip install -r requirements.txt
-      - run: python -m py_compile skills/pc2android/scripts/pc2android.py
+      - run: python -m py_compile skills/pc2android/scripts/pc2android.py skills/pc2android/scripts/godot_backend.py
+      - run: python -m unittest discover -s tests -v
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: node --test skills/pc2android/scripts/virtual-keys.test.js
       - run: python skills/pc2android/scripts/pc2android.py --help
       - name: Smoke-test CrySirror detection
         run: |
@@ -24,6 +29,21 @@ jobs:
             --name Smoke \
             --application-id com.example.smoke \
             --out /tmp/cry-out \
+            --engine auto \
+            --dry-run
+      - name: Smoke-test Godot detection
+        run: |
+          mkdir -p /tmp/godot-game
+          python3 - <<'PY'
+          import struct
+          from pathlib import Path
+          Path('/tmp/godot-game/game.pck').write_bytes(struct.pack('<4sIIII', b'GDPC', 2, 4, 7, 2) + b'\0' * 80)
+          PY
+          python3 skills/pc2android/scripts/pc2android.py \
+            --source /tmp/godot-game \
+            --name Smoke \
+            --application-id com.example.smoke \
+            --out /tmp/godot-out \
             --engine auto \
             --dry-run
       - name: Validate Agent Skills metadata

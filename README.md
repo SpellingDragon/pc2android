@@ -2,7 +2,7 @@
 
 **把 PC 游戏一键打包成单个安卓 APK。**
 
-RPG Maker MV/MZ · NW.js · Electron · KiriKiri · Siglus · RealLive · QLIE
+RPG Maker MV/MZ · NW.js · Electron · KiriKiri · Siglus · RealLive · QLIE · Godot
 
 [![CI](https://github.com/SpellingDragon/game-pc2and/actions/workflows/ci.yml/badge.svg)](https://github.com/SpellingDragon/game-pc2and/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/SpellingDragon/game-pc2and?label=release)](https://github.com/SpellingDragon/game-pc2and/releases/latest)
@@ -18,7 +18,7 @@ RPG Maker MV/MZ · NW.js · Electron · KiriKiri · Siglus · RealLive · QLIE
 python3 skills/pc2android/scripts/pc2android.py /path/to/game
 ```
 
-自动识别引擎，输出单个 APK。首次运行自动准备 JDK、Android SDK、Gradle；CrySirror 路径另准备 Rust 1.95、NDK、cargo-ndk。无需 Android Studio，无需 root。
+自动识别引擎，输出单个 APK。首次运行自动准备 JDK、Android SDK、Gradle；CrySirror 路径另准备 Rust 1.95、NDK、cargo-ndk；Godot 路径自动恢复工程并准备匹配版本的编辑器与 Android 导出模板。无需 Android Studio，无需 root。
 
 ## 支持什么
 
@@ -26,6 +26,7 @@ python3 skills/pc2android/scripts/pc2android.py /path/to/game
 |---|---|---|
 | WebView | RPG Maker MZ/MV、NW.js、Electron | 已验证 |
 | CrySirror | KiriKiri、Siglus、RealLive、QLIE 等 VN 引擎 | 按引擎验证 |
+| Godot | GDScript + GL Compatibility，exe/PCK 自动恢复 | 已验证 |
 | — | 其他 Win32 原生引擎 | 建议 Winlator |
 
 <details>
@@ -40,8 +41,8 @@ KiriKiri、Siglus、RealLive、AVG32、BGI、SoftPAL、RFVP、NScripter、Circus
 ## 能力
 
 - **单 APK**：游戏、运行时、虚拟键盘/宿主、许可证。
-- **自动环境**：JDK、Android SDK、Gradle、Chrome、Python 依赖。
-- **两条后端**：WebView（RPG Maker/NW.js/Electron）与 CrySirror（VN）。
+- **自动环境**：JDK、Android SDK、Gradle、Chrome、Python 依赖；Godot 路径自动准备 gore、GDRE、编辑器与导出模板。
+- **三条后端**：WebView（RPG Maker/NW.js/Electron）、CrySirror（VN）、Godot（GDScript 工程恢复）。
 - **虚拟键盘**：MZ3D 等连续输入，支持隐藏、透明度、多指。
 - **可选作弊**：RPG Maker 物品价格、敌人经验；Electron `__GAME_DATA__`。
 - **校验**：签名、对齐、CRC、资源完整性；WebView 预检。
@@ -87,7 +88,7 @@ python3 skills/pc2android/scripts/pc2android.py \
   --preflight
 ```
 
-`--engine auto|rmmz|rmmv|nwjs|electron|crysirror`、`--dry-run`、`--keep-work`、`--browser`。
+`--engine auto|rmmz|rmmv|nwjs|electron|crysirror|godot`、`--dry-run`、`--keep-work`、`--browser`。
 
 </details>
 
@@ -97,6 +98,13 @@ python3 skills/pc2android/scripts/pc2android.py \
 - 只消费 `libcrysirror_mobile.so`；Android 宿主由 game-pc2and 维护，不修改上游 `platform/android`。
 - APK 内含 MPL-2.0、源码 commit/修改说明、依赖许可证清单和可获取的许可证文本。
 - 不走 Chromium 预检，需实机验证。
+
+## Godot 后端
+
+- 自动识别 Godot exe、独立 PCK 与补丁包，恢复脚本和 imported resources 后导出 Android APK。
+- 首版支持 GDScript + GL Compatibility；C#、GDExtension 和无法恢复的工程会明确失败。
+- 自动应用 Android 纹理、存档和桌面补丁兼容处理，执行恢复、导出、签名、对齐和资源校验。
+- GDRE 的有损转换会写入报告；点击式 UI 使用原生触控，动作游戏需单独配置虚拟按键。
 
 ## 触屏与作弊
 
@@ -111,6 +119,8 @@ python3 skills/pc2android/scripts/pc2android.py \
 
 **KiriKiri/Siglus/RealLive/QLIE 能运行吗？** 走 CrySirror，按引擎/游戏验证。
 
+**Godot 游戏能转安卓吗？** 支持 GDScript + GL Compatibility 的 exe/PCK，自动恢复后导出；有损转换会写入报告。
+
 **需要 Android Studio/root 吗？** 不需要。
 
 **所有 PC 游戏都能转吗？** 不能；未列出的 Win32 引擎建议 Winlator。
@@ -121,4 +131,4 @@ python3 skills/pc2android/scripts/pc2android.py \
 
 ## License
 
-MIT。CrySirror 为 MPL-2.0；源码 commit、修改说明、依赖许可证清单和可获取的许可证文本随 APK 放在 `assets/licenses/`。
+MIT。CrySirror 为 MPL-2.0；gore、GDRE Tools 与 Godot 为 MIT。源码 commit、修改说明、依赖许可证清单和可获取的许可证文本随 APK 放在 `assets/licenses/`。

@@ -10,6 +10,9 @@ informed by the following open-source projects:
 | Ludens | Apache-2.0 | https://github.com/yoimerdr/ludens |
 | AndroidX WebKit | Apache-2.0 | https://github.com/androidx/androidx |
 | CrySirror | MPL-2.0 | https://github.com/xmoezzz/CrySirror |
+| gore | MIT | https://github.com/figurophobia/gore |
+| GDRE Tools | MIT | https://github.com/GDRETools/gdsdecomp |
+| Godot Engine | MIT | https://github.com/godotengine/godot |
 
 No source code from these projects is included in this repository. Their
 license texts remain with their respective repositories. CrySirror source is
@@ -20,6 +23,12 @@ from CrySirror's Android JNI binding and remains MPL-2.0. The APK includes
 local modifications for the CrySirror engine, plus
 `assets/licenses/CRYIRROR-DEPENDENCIES.txt` and the license texts available
 under `assets/licenses/dependencies/`.
+
+Godot recovery uses gore and GDRE Tools at build time, then exports with the
+matching Godot editor and Android export templates. These tools are MIT-licensed.
+The APK includes their version/source notice and available license texts under
+`assets/licenses/`; recovered game resources remain subject to the game owner's
+authorization.
 
 ## Trademarks
 

@@ -2,7 +2,7 @@
 
 **Turn PC games into one Android APK.**
 
-RPG Maker MV/MZ · NW.js · Electron · KiriKiri · Siglus · RealLive · QLIE
+RPG Maker MV/MZ · NW.js · Electron · KiriKiri · Siglus · RealLive · QLIE · Godot
 
 [![CI](https://github.com/SpellingDragon/game-pc2and/actions/workflows/ci.yml/badge.svg)](https://github.com/SpellingDragon/game-pc2and/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/SpellingDragon/game-pc2and?label=release)](https://github.com/SpellingDragon/game-pc2and/releases/latest)
@@ -18,7 +18,7 @@ RPG Maker MV/MZ · NW.js · Electron · KiriKiri · Siglus · RealLive · QLIE
 python3 skills/pc2android/scripts/pc2android.py /path/to/game
 ```
 
-The engine is detected automatically and one APK is produced. The first run installs missing JDK, Android SDK and Gradle components; the CrySirror path also prepares Rust 1.95, the NDK and cargo-ndk. No Android Studio, no root.
+The engine is detected automatically and one APK is produced. The first run installs missing JDK, Android SDK and Gradle components; the CrySirror path also prepares Rust 1.95, the NDK and cargo-ndk; the Godot path recovers the project and prepares the matching editor and Android export templates. No Android Studio, no root.
 
 ## What it supports
 
@@ -26,6 +26,7 @@ The engine is detected automatically and one APK is produced. The first run inst
 |---|---|---|
 | WebView | RPG Maker MZ/MV, NW.js, Electron | verified |
 | CrySirror | KiriKiri, Siglus, RealLive, QLIE and other VN engines | per engine |
+| Godot | GDScript + GL Compatibility, automatic exe/PCK recovery | verified |
 | — | other Win32-native engines | use Winlator |
 
 <details>
@@ -40,8 +41,8 @@ If detection misses a layout, pass `--engine crysirror`.
 ## Features
 
 - **One APK**: game, runtime, virtual keyboard/host and license notices.
-- **Automatic setup**: JDK, Android SDK, Gradle, Chrome and Python dependencies.
-- **Two backends**: WebView (RPG Maker/NW.js/Electron) and CrySirror (VN).
+- **Automatic setup**: JDK, Android SDK, Gradle, Chrome and Python dependencies; the Godot path also prepares gore, GDRE, the editor and export templates.
+- **Three backends**: WebView (RPG Maker/NW.js/Electron), CrySirror (VN) and Godot (GDScript project recovery).
 - **Virtual keyboard**: MZ3D and other continuous-input games; hide, opacity, multi-touch.
 - **Optional cheats**: RPG Maker item prices and enemy exp; Electron `__GAME_DATA__`.
 - **Verification**: signing, alignment, CRC, resource integrity; WebView preflight.
@@ -87,7 +88,7 @@ python3 skills/pc2android/scripts/pc2android.py \
   --preflight
 ```
 
-`--engine auto|rmmz|rmmv|nwjs|electron|crysirror`, `--dry-run`, `--keep-work`, `--browser`.
+`--engine auto|rmmz|rmmv|nwjs|electron|crysirror|godot`, `--dry-run`, `--keep-work`, `--browser`.
 
 </details>
 
@@ -97,6 +98,13 @@ python3 skills/pc2android/scripts/pc2android.py \
 - Consumes only `libcrysirror_mobile.so`; the Android host is owned by game-pc2and, with upstream `platform/android` untouched.
 - The APK includes MPL-2.0, source commit/modification notice, dependency license inventory and available license texts.
 - No Chromium preflight; verify on a device.
+
+## Godot backend
+
+- Detects Godot exe, standalone PCK and patch packs, recovers scripts and imported resources, then exports an Android APK.
+- First release supports GDScript + GL Compatibility; C#, GDExtension and unrecoverable projects fail clearly.
+- Applies Android texture, save-data and desktop-patch compatibility fixes, then verifies recovery, export, signing, alignment and resources.
+- Lossy GDRE conversions are recorded in the report. Point-and-click UI uses native touch; action games need a separate virtual-control profile.
 
 ## Touch and cheats
 
@@ -111,6 +119,8 @@ python3 skills/pc2android/scripts/pc2android.py \
 
 **Can KiriKiri/Siglus/RealLive/QLIE run?** Through CrySirror, verified per engine/game.
 
+**Can Godot games run on Android?** GDScript + GL Compatibility exe/PCK projects are recovered and exported automatically; lossy conversions are recorded in the report.
+
 **Do I need Android Studio/root?** No.
 
 **Does it support every PC game?** No; unlisted Win32 engines should use Winlator.
@@ -121,4 +131,4 @@ python3 skills/pc2android/scripts/pc2android.py \
 
 ## License
 
-MIT. CrySirror is MPL-2.0; the source commit, modification notice, dependency license inventory and available license texts are included in the APK under `assets/licenses/`.
+MIT. CrySirror is MPL-2.0; gore, GDRE Tools and Godot are MIT. The source commit, modification notice, dependency license inventory and available license texts are included in the APK under `assets/licenses/`.

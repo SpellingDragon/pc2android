@@ -38,6 +38,10 @@ from pathlib import Path
 WEB_DIRS = ['audio', 'data', 'effects', 'fonts', 'icon', 'img', 'locales', 'models', 'css', 'credits.html']
 BACKUP_PATTERNS = ('*.bak*', '*.before-*', '.mz-timeline-backups', '_backup_*')
 CRYSIRROR_IGNORE = ('.git', '.DS_Store', '__MACOSX', '*.zip', '*.xlsx', 'UnInstall.exe', 'エンジン設定.exe', '上老王论坛当老王')
+QLIE_CONFIG_MARKER = 'QLIE l2 permits an empty thumb'
+QLIE_CONFIG_POSITION_MARKER = 'let mut position = o.position;'
+CRYSIRROR_AUDIO_QUEUE_MARKER = 'Mobile session ticks are bursty'
+CRYSIRROR_AUDIO_CATCHUP_MARKER = 'now.duration_since(previous).as_millis().min(2000)'
 TOOLCHAIN_HOME = Path(os.environ.get('PC2ANDROID_HOME') or (Path.home() / '.pc2android')).expanduser()
 REMEDIATION = []
 NEG_ZERO = '__PC2ANDROID_NEG_ZERO__'
@@ -604,6 +608,12 @@ def detect_crysirror_engine(source):
 
 def detect_engine(source):
     root = game_root(source)
+    try:
+        from godot_backend import detect_godot_source
+    except ImportError:
+        from .godot_backend import detect_godot_source
+    if detect_godot_source(source):
+        return 'godot'
     crysirror = detect_crysirror_engine(source)
     if crysirror:
         return crysirror
@@ -647,9 +657,163 @@ def rust_version(env=None):
     return (int(match.group(1)), int(match.group(2))) if match else (0, 0)
 
 
+def _replace_patch(text, old, new, path):
+    old_count = text.count(old)
+    new_count = text.count(new)
+    if old_count == 1 and new_count == 0:
+        return text.replace(old, new, 1)
+    if old_count == 0 and new_count == 1:
+        return text
+    raise RuntimeError(f'CrySirror source patch does not match {path}')
+
+
+def patch_crysirror_qlie_config(source):
+    render = Path(source) / 'crates/crysirror-qlie/src/adapter/render.rs'
+    bar = Path(source) / 'crates/crysirror-qlie/src/adapter/objects/bar.rs'
+    render_text = render.read_text(encoding='utf-8')
+    bar_text = bar.read_text(encoding='utf-8')
+    original_render = render_text
+    original_bar = bar_text
+    replacements = (
+        (
+            '        let thumb_id = child("thumb").context("QLIE scrollbar has no thumb resource")?;',
+            '        let thumb_id = child("thumb");',
+        ),
+        (
+            '''        let now = vm.visual_time(bar.thread, bar.started, host_now);
+        let child = |part: &str| {
+            bar.properties
+                .get(&format!("bar/{part}_id"))
+                .and_then(|v| v.first())
+                .map(Value::text)
+        };
+        let thumb_id = child("thumb");
+        let track_id = child("track").context("QLIE scrollbar has no track resource")?;
+        let fill_id = child("fill");
+        if !bar.visible {
+            if bar.ui_registered {
+                ui.push(json!({"op":"set_visible","id":bar.layer,"visible":false}));
+            }
+            continue;
+        }''',
+            '''        if !bar.visible {
+            if bar.ui_registered {
+                ui.push(json!({"op":"set_visible","id":bar.layer,"visible":false}));
+            }
+            continue;
+        }
+        let now = vm.visual_time(bar.thread, bar.started, host_now);
+        let child = |part: &str| {
+            bar.properties
+                .get(&format!("bar/{part}_id"))
+                .and_then(|v| v.first())
+                .map(Value::text)
+        };
+        let thumb_id = child("thumb");
+        let track_id = child("track").context("QLIE scrollbar has no track resource")?;
+        let fill_id = child("fill");''',
+        ),
+        (
+            '''        let thumb = image_extent(
+            vm.objects
+                .get(&thumb_id)
+                .context("QLIE scrollbar thumb object")?,
+        );''',
+            '''        // QLIE l2 permits an empty thumb; retain track/fill and slider input.
+        let thumb = match thumb_id.as_deref() {
+            Some(id) => image_extent(
+                vm.objects
+                    .get(id)
+                    .context("QLIE scrollbar thumb object")?,
+            ),
+            None => [0., 0.],
+        };''',
+        ),
+        (
+            '            (Some(thumb_id), thumb_position, 10, false),',
+            '            (thumb_id, thumb_position, 10, false),',
+        ),
+    )
+    for old, new in replacements:
+        render_text = _replace_patch(render_text, old, new, render)
+    bar_text = _replace_patch(
+        bar_text,
+        '''            "?p" => {
+                for (i, value) in self.objects[id].position.into_iter().enumerate() {
+                    m.result(i, Value::Int(value));
+                }
+            }''',
+        '''            "?p" => {
+                let o = &self.objects[id];
+                let mut position = o.position;
+                if o.created {
+                    let layer: serde_json::Value = serde_json::from_slice(
+                        &h.query_engine(self.client, EngineQuery::Layer(o.layer))?,
+                    )?;
+                    position[0] =
+                        layer["rect"][0].as_f64().context("QLIE position query X")? as i32;
+                    position[1] =
+                        layer["rect"][1].as_f64().context("QLIE position query Y")? as i32;
+                }
+                for (i, value) in position.into_iter().enumerate() {
+                    m.result(i, Value::Int(value));
+                }
+            }''',
+        bar,
+    )
+    if render_text != original_render:
+        render.write_text(render_text, encoding='utf-8')
+    if bar_text != original_bar:
+        bar.write_text(bar_text, encoding='utf-8')
+
+
+def patch_crysirror_audio(source):
+    output = Path(source) / 'crates/crysirror-audio/src/pcm_output.rs'
+    embedded = Path(source) / 'crates/crysirror-desktop/src/app/embedded.rs'
+    output_text = output.read_text(encoding='utf-8')
+    embedded_text = embedded.read_text(encoding='utf-8')
+    original_output = output_text
+    original_embedded = embedded_text
+    replacements = (
+        (
+            'pub const OUTPUT_CAPACITY: usize = OUTPUT_RATE as usize / 4;',
+            '''// Mobile session ticks are bursty; retain two seconds of output to reduce callback underruns.
+pub const OUTPUT_CAPACITY: usize = OUTPUT_RATE as usize * 2;
+#[cfg(target_os = "android")]
+const OUTPUT_START_SILENCE: usize = OUTPUT_RATE as usize * 120 / 1000;''',
+        ),
+        (
+            '''            if !tail.iter().flatten().any(|s| s.is_finite() && *s != 0.) {
+                return Ok(());
+            }
+        }
+        self.shared.push(frames);''',
+            '''            if !tail.iter().flatten().any(|s| s.is_finite() && *s != 0.) {
+                return Ok(());
+            }
+            #[cfg(target_os = "android")]
+            self.shared.push(&vec![[0.; 2]; OUTPUT_START_SILENCE]);
+        }
+        self.shared.push(frames);''',
+        ),
+    )
+    for old, new in replacements:
+        output_text = _replace_patch(output_text, old, new, output)
+    embedded_text = _replace_patch(
+        embedded_text,
+        'now.duration_since(previous).as_millis().min(100) as u64',
+        'now.duration_since(previous).as_millis().min(2000) as u64',
+        embedded,
+    )
+    if output_text != original_output:
+        output.write_text(output_text, encoding='utf-8')
+    if embedded_text != original_embedded:
+        embedded.write_text(embedded_text, encoding='utf-8')
+
+
 def ensure_crysirror_source():
     try:
-        return find_crysirror_source()
+        source = find_crysirror_source()
     except RuntimeError:
         git = shutil.which('git')
         if not git:
@@ -661,7 +825,10 @@ def ensure_crysirror_source():
             target.unlink()
         target.parent.mkdir(parents=True, exist_ok=True)
         run([git, 'clone', '--depth', '1', 'https://github.com/xmoezzz/CrySirror.git', str(target)])
-        return find_crysirror_source()
+        source = find_crysirror_source()
+    patch_crysirror_qlie_config(source)
+    patch_crysirror_audio(source)
+    return source
 
 
 def ensure_rust_toolchain():
@@ -1239,6 +1406,7 @@ VIRTUAL_KEYS_TEMPLATE = r'''(() => {
   const pressed = new Set();
   const root = document.createElement('div');
   root.id = 'pc2a-virtual-keys';
+  ['touchstart', 'touchmove', 'touchend', 'touchcancel'].forEach(type => root.addEventListener(type, event => event.stopPropagation(), {capture: true, passive: true}));
   const style = document.createElement('style');
   style.textContent = `
     #pc2a-virtual-keys{position:fixed;inset:0;z-index:2147483000;pointer-events:none;--vk-size:56px;--vk-gap:8px;--vk-alpha:.28;font-family:sans-serif;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
@@ -1599,6 +1767,18 @@ def write_crysirror_source_notice(source, licenses):
     modifications = []
     if subject and ('QLIE' in subject or 'sound replacement' in subject):
         modifications.append('crates/crysirror-qlie/src/adapter/objects.rs — QLIE ls fallback when no animation bundle exists')
+    render = Path(source) / 'crates/crysirror-qlie/src/adapter/render.rs'
+    if render.is_file() and QLIE_CONFIG_MARKER in render.read_text(encoding='utf-8'):
+        modifications.append('crates/crysirror-qlie/src/adapter/render.rs — QLIE scrollbar thumb is optional and hidden bars skip resource requirements')
+    bar = Path(source) / 'crates/crysirror-qlie/src/adapter/objects/bar.rs'
+    if bar.is_file() and QLIE_CONFIG_POSITION_MARKER in bar.read_text(encoding='utf-8'):
+        modifications.append('crates/crysirror-qlie/src/adapter/objects/bar.rs — QLIE scrollbar position queries read the current animated layer position')
+    output = Path(source) / 'crates/crysirror-audio/src/pcm_output.rs'
+    embedded = Path(source) / 'crates/crysirror-desktop/src/app/embedded.rs'
+    if output.is_file() and CRYSIRROR_AUDIO_QUEUE_MARKER in output.read_text(encoding='utf-8'):
+        modifications.append('crates/crysirror-audio/src/pcm_output.rs — larger mobile output queue and 120 ms startup silence buffer')
+    if embedded.is_file() and CRYSIRROR_AUDIO_CATCHUP_MARKER in embedded.read_text(encoding='utf-8'):
+        modifications.append('crates/crysirror-desktop/src/app/embedded.rs — preserve up to two seconds of real-time audio catch-up after frame stalls')
     if changed:
         modifications.extend(line[3:] for line in changed.splitlines() if line[3:])
     if not modifications:
@@ -2437,14 +2617,14 @@ def find_gradle():
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description='Package HTML5 / RPG Maker MV/MZ / Electron / supported VN games into a single Android APK.',
+        description='Package HTML5 / RPG Maker MV/MZ / Electron / supported VN / Godot games into a single Android APK.',
         epilog='One command: python3 pc2android.py /path/to/game'
     )
     parser.add_argument('--source', required=True, type=Path, help='Game folder or data_Win/www folder')
     parser.add_argument('--name', required=True, help='Display name used for APK filename and Android label')
     parser.add_argument('--application-id', required=True, help='Android package id, e.g. com.example.game')
     parser.add_argument('--out', type=Path, default=Path('.'), help='Output directory (default: current directory)')
-    parser.add_argument('--engine', choices=['auto', 'rmmz', 'rmmv', 'nwjs', 'electron', 'crysirror'], default='auto')
+    parser.add_argument('--engine', choices=['auto', 'rmmz', 'rmmv', 'nwjs', 'electron', 'crysirror', 'godot'], default='auto')
     parser.add_argument('--dry-run', action='store_true', help='Only detect and stage files, do not build APK')
     parser.add_argument('--preflight', action='store_true', help='Validate packaged scenes and saves in headless Chromium')
     parser.add_argument('--browser', type=Path, help='Chrome or Chromium executable used by --preflight')
@@ -2478,14 +2658,15 @@ def parse_args():
         parser.error('--application-id must be a valid Java package name')
     if not args.dry_run:
         requested = detect_engine(args.source) if args.engine == 'auto' else args.engine
+        native_backend = requested in ('crysirror', 'godot')
         toolchain = ensure_toolchain(
-            need_browser=args.preflight,
-            need_gradle=requested != 'crysirror'
+            need_browser=args.preflight and not native_backend,
+            need_gradle=not native_backend
         )
         args.sdk = args.sdk or toolchain['sdk']
         args.java_home = args.java_home or toolchain['java_home']
-        args.gradle = args.gradle or toolchain['gradle']
-        if args.preflight and not args.browser:
+        args.gradle = args.gradle or toolchain.get('gradle')
+        if args.preflight and not args.browser and not native_backend:
             args.browser = toolchain.get('browser')
         if not args.sdk.is_dir() or not args.java_home.is_dir():
             parser.error('Set --sdk and --java-home to an Android SDK root and JDK 17 home')
@@ -2643,13 +2824,23 @@ def apply_cheats(assets):
 
 
 def run_pipeline(args):
+    engine = detect_engine(args.source) if args.engine == 'auto' else args.engine
+    if engine == 'godot':
+        if args.dry_run:
+            from godot_backend import detect_godot_source
+            source = detect_godot_source(args.source)
+            if source is None:
+                raise RuntimeError(f'Unrecognized Godot source: {args.source}')
+            print(json.dumps({'source': str(args.source), 'engine': engine, 'inputs': source.as_dict()['inputs']}, ensure_ascii=False, indent=2))
+            return
+        from godot_backend import run_godot_pipeline
+        return run_godot_pipeline(args)
     if not args.source.is_dir():
         raise RuntimeError(f'Source directory not found: {args.source}')
-    engine = detect_engine(args.source) if args.engine == 'auto' else args.engine
     if engine == 'crysirror':
         return run_crysirror_pipeline(args)
     if engine in ('windows', 'unknown'):
-        raise RuntimeError('This tool handles RPG Maker MV/MZ, NW.js, Electron and CrySirror-supported VN engines. Use Winlator for unsupported Windows-native engines.')
+        raise RuntimeError('This tool handles RPG Maker MV/MZ, NW.js, Electron, CrySirror-supported VN and Godot games. Use Winlator for unsupported Windows-native engines.')
     print(json.dumps({'source': str(args.source), 'engine': engine, 'name': args.name, 'application_id': args.application_id}, ensure_ascii=False, indent=2))
     workdir = args.out / '.android-port-work'
     if workdir.exists():
@@ -2765,7 +2956,7 @@ def extract_archive(archive, destination, strip=0):
     archive = Path(archive)
     destination = Path(destination)
     destination.mkdir(parents=True, exist_ok=True)
-    if archive.name.endswith('.zip'):
+    if archive.name.endswith(('.zip', '.tpz')):
         unzip = shutil.which('unzip')
         if unzip:
             subprocess.run([unzip, '-q', str(archive), '-d', str(destination)], check=True)
@@ -2961,17 +3152,18 @@ def ensure_python_deps():
 
 def one_command(project, cheat=False):
     project = Path(project).expanduser().resolve()
-    if not project.is_dir():
-        raise RuntimeError(f'Project directory not found: {project}')
+    if not project.exists():
+        raise RuntimeError(f'Project path not found: {project}')
     name, application_id = derive_identity(project)
     engine = detect_engine(project)
+    native_backend = engine in ('crysirror', 'godot')
     toolchain = ensure_toolchain(
-        need_browser=engine != 'crysirror',
-        need_gradle=engine != 'crysirror'
+        need_browser=not native_backend,
+        need_gradle=not native_backend
     )
     args = types.SimpleNamespace(
         source=project, name=name, application_id=application_id, out=Path.cwd(),
-        engine=engine, dry_run=False, preflight=True, browser=toolchain.get('browser'), keep_work=False,
+        engine=engine, dry_run=False, preflight=not native_backend, browser=toolchain.get('browser'), keep_work=False,
         cheat=cheat, sdk=toolchain['sdk'], java_home=toolchain['java_home'], gradle=toolchain.get('gradle'),
     )
     run_pipeline(args)
